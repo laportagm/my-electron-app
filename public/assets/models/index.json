@@ -1,0 +1,22 @@
+{
+  "models": [
+    {
+      "id": "Brain1",
+      "name": "Complete Brain",
+      "lowUrl": "./assets/models/low-poly/Brain1.glb",
+      "highUrl": "./assets/models/high-poly/Brain1.glb"
+    },
+    {
+      "id": "BrainstemNerves",
+      "name": "Brainstem Nerves",
+      "lowUrl": "./assets/models/low-poly/BrainstemNerves.glb",
+      "highUrl": "./assets/models/high-poly/BrainstemNerves.glb"
+    },
+    {
+      "id": "midbrain",
+      "name": "Midbrain",
+      "lowUrl": "./assets/models/low-poly/midbrain.glb",
+      "highUrl": "./assets/models/high-poly/midbrain.glb"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+> Run **npm run dev** and an Electron window opens with a spinning Three.js cube (~60 FPS).

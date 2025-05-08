@@ -1,0 +1,7 @@
+cat <<'EOF' > .gitignore
+node_modules/
+dist/
+release/
+.vscode/
+*.log
+EOF

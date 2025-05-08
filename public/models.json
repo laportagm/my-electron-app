@@ -1,0 +1,22 @@
+{
+  "models": [
+    {
+      "id": "Brain1",
+      "lowUrl": "/assets/models/Brain1.glb",
+      "highUrl": "/assets/models/Brain1.glb",
+      "description": "Full brain model"
+    },
+    {
+      "id": "BrainstemNerves",
+      "lowUrl": "/assets/models/BrainstemNerves.glb",
+      "highUrl": "/assets/models/BrainstemNerves.glb",
+      "description": "Brainstem nerves"
+    },
+    {
+      "id": "midbrain",
+      "lowUrl": "/assets/models/midbrain.glb",
+      "highUrl": "/assets/models/midbrain.glb",
+      "description": "Midbrain model"
+    }
+  ]
+}
