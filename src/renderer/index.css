@@ -2,11 +2,332 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+:root {
+  /* Brain anatomy theme colors */
+  --color-brain-pink: #ff6b9d;
+  --color-brain-pink-dark: #e6437e;
+  --color-brain-blue: #4299e1;
+  --color-brain-blue-dark: #3182ce;
+  --color-brain-purple: #9f7aea;
+  --color-brain-green: #48bb78;
+  --color-brain-yellow: #f6e05e;
+
+  /* Gradients */
+  --gradient-blue: linear-gradient(145deg, #4299e1, #3182ce);
+  --gradient-pink: linear-gradient(145deg, #ff6b9d, #e6437e);
+  --gradient-bluegray: linear-gradient(145deg, #4a5568, #2d3748);
+}
+
+/* Base HTML styling */
+html {
   @apply text-gray-900 dark:text-gray-100;
+  scroll-behavior: smooth;
+}
+
+body {
   @apply bg-white dark:bg-gray-900;
+  font-feature-settings: "rlig" 1, "calt" 1;
 }
 
 * {
   @apply select-none;
+}
+
+/* Custom Animations */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ping-slow {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes shine {
+  0% {
+    left: -100%;
+  }
+  50%, 100% {
+    left: 100%;
+  }
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes dot-animation {
+  0%, 20% {
+    opacity: 0;
+  }
+  60%, 100% {
+    opacity: 1;
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 15s linear infinite;
+}
+
+.animate-ping-slow {
+  animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.animate-shine {
+  animation: shine 1.5s linear infinite;
+}
+
+.animate-gradient-shift {
+  background-size: 400% 400%;
+  animation: gradient-shift 5s ease infinite;
+}
+
+.animate-dot-1 {
+  animation: dot-animation 1.4s infinite;
+  animation-delay: 0s;
+}
+
+.animate-dot-2 {
+  animation: dot-animation 1.4s infinite;
+  animation-delay: 0.2s;
+}
+
+.animate-dot-3 {
+  animation: dot-animation 1.4s infinite;
+  animation-delay: 0.4s;
+}
+
+/* Shadow effects */
+.drop-shadow-brain {
+  filter: drop-shadow(0 0 8px rgba(255, 107, 157, 0.5));
+}
+
+/* Custom scrollbar */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-500;
+}
+
+/* Custom shadows */
+.shadow-neumorph {
+  box-shadow: 5px 5px 10px rgba(0,0,0,0.1),
+              -5px -5px 10px rgba(255,255,255,0.05);
+}
+
+.dark .shadow-neumorph {
+  box-shadow: 5px 5px 10px rgba(0,0,0,0.3),
+              -5px -5px 10px rgba(255,255,255,0.02);
+}
+
+/* Glass morphism effect */
+.bg-glass {
+  @apply bg-white/70 dark:bg-gray-800/70 backdrop-blur-md;
+  border: 1px solid rgba(255, 255, 255, 0.125);
+}
+
+/* Button styling */
+.btn {
+  @apply px-4 py-2 rounded-md font-medium transition-all duration-200
+         focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
+
+.btn-primary {
+  @apply bg-blue-500 text-white hover:bg-blue-600
+         focus:ring-blue-500;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 text-gray-800 hover:bg-gray-300
+         dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600
+         focus:ring-gray-400;
+}
+
+.btn-circle {
+  @apply rounded-full p-2 flex items-center justify-center;
+}
+
+/* Card styling */
+.card {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-4;
+}
+
+.card-hover {
+  @apply hover:shadow-lg transition-shadow duration-200;
+}
+
+/* Tooltip */
+.tooltip {
+  @apply relative inline-block;
+}
+
+.tooltip:hover .tooltip-text {
+  @apply visible opacity-100;
+}
+
+.tooltip-text {
+  @apply invisible absolute z-10 py-1 px-2 bg-gray-800 text-white text-xs
+         rounded opacity-0 transition-opacity duration-300 whitespace-nowrap;
+}
+
+/* Badge */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-blue {
+  @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
+}
+
+.badge-green {
+  @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+}
+
+.badge-red {
+  @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
+}
+
+/* Glass morphism badges */
+.badge-glass {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium backdrop-blur-sm;
+}
+
+.badge-glass.badge-blue {
+  @apply bg-blue-500/10 text-blue-700 border border-blue-400/20 dark:bg-blue-500/20 dark:text-blue-300 dark:border-blue-400/30;
+}
+
+.badge-glass.badge-green {
+  @apply bg-green-500/10 text-green-700 border border-green-400/20 dark:bg-green-500/20 dark:text-green-300 dark:border-green-400/30;
+}
+
+.badge-glass.badge-red {
+  @apply bg-red-500/10 text-red-700 border border-red-400/20 dark:bg-red-500/20 dark:text-red-300 dark:border-red-400/30;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .hide-on-mobile {
+    @apply hidden;
+  }
+
+  .mobile-full-width {
+    @apply w-full !important;
+  }
+
+  .mobile-grid {
+    @apply grid-cols-1 !important;
+  }
+}
+
+/* Custom selection color */
+::selection {
+  @apply bg-blue-500/20;
+}
+
+/* Panel resizing */
+:root {
+  --resize-indicator-color: hsl(220, 70%, 60%);
+}
+
+.resizing {
+  @apply cursor-col-resize select-none;
+}
+
+.resizing * {
+  @apply select-none;
+}
+
+.resize-complete {
+  animation: resize-pulse 0.3s ease-in-out;
+}
+
+@keyframes resize-pulse {
+  0% { box-shadow: 0 0 0 0 var(--resize-indicator-color, rgba(66, 153, 225, 0.4)); }
+  70% { box-shadow: 0 0 0 6px var(--resize-indicator-color, rgba(66, 153, 225, 0)); }
+  100% { box-shadow: 0 0 0 0 var(--resize-indicator-color, rgba(66, 153, 225, 0)); }
+}
+
+/* Control Panel Styling */
+.control-panel-container {
+  @apply absolute top-4 right-4 z-50;
+  width: 320px;
+  max-height: calc(100vh - 140px);
+}
+
+/* Override Leva styles for better app integration */
+:root {
+  --leva-c-accent: var(--color-brain-blue);
+  --leva-c-accent-alpha: rgba(66, 153, 225, 0.1);
+  --leva-c-focus: var(--color-brain-blue-dark);
+}
+
+.leva-container {
+  @apply bg-glass backdrop-blur-md border border-white/20 dark:border-gray-700/50 rounded-xl shadow-xl;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+}
+
+/* Make Leva panel work better with dark mode */
+.dark .leva-container {
+  --leva-colors-highlight1: rgba(255, 255, 255, 0.09);
+  --leva-colors-highlight2: rgba(255, 255, 255, 0.07);
+  --leva-colors-highlight3: rgba(255, 255, 255, 0.05);
+}
+
+/* Ensure it scrolls cleanly on overflow */
+.leva-panel {
+  max-height: 100%;
+  overflow-y: auto;
+  @apply scrollbar-thin;
 }

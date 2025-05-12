@@ -4,9 +4,6 @@
 import * as dotenv from 'dotenv';
 import path from 'path';
 import { app } from 'electron';
-// Import the module using require to avoid TypeScript issues
-// This is a workaround for the type definition problems
-const ElectronStore = require('electron-store');
 
 // Load environment variables based on NODE_ENV
 const environment = process.env.NODE_ENV || 'development';
@@ -24,25 +21,81 @@ export const config = {
 interface ConfigStore {
   apiUrl?: string;
   theme?: 'light' | 'dark';
+  loggingLevels?: {
+    assets?: 'verbose' | 'normal' | 'quiet';
+    models?: 'verbose' | 'normal' | 'quiet';
+  };
 }
 
-// Create a store instance using require-style import to avoid TypeScript issues
-const store = new ElectronStore();
+// Simple in-memory store as a fallback
+const memoryStore: Record<string, any> = {
+  // Default logging configuration
+  loggingLevels: {
+    assets: 'normal',  // Default to normal logging
+    models: 'normal'
+  }
+};
+
+// Create a simple store implementation that doesn't rely on electron-store
+const store = {
+  get: (key: string) => {
+    // Try to get from localStorage in renderer process
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const value = window.localStorage.getItem(`config_${key}`);
+        return value ? JSON.parse(value) : null;
+      } catch (e) {
+        console.error('Error reading from localStorage:', e);
+      }
+    }
+    
+    // Fallback to memory store
+    return memoryStore[key] || null;
+  },
+  
+  set: (key: string, value: any) => {
+    // Store in localStorage in renderer process
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(`config_${key}`, JSON.stringify(value));
+      } catch (e) {
+        console.error('Error writing to localStorage:', e);
+      }
+    }
+    
+    // Always store in memory
+    memoryStore[key] = value;
+  }
+};
 
 export const rendererConfig = {
   getApiUrl: (): string | undefined => {
-    // Use any type to bypass TypeScript checking
-    return (store as any).get('apiUrl');
+    return store.get('apiUrl');
   },
-  
+
   getTheme: (): 'light' | 'dark' => {
-    // Use any type to bypass TypeScript checking
-    const theme = (store as any).get('theme');
+    const theme = store.get('theme');
     return theme === 'light' || theme === 'dark' ? theme : 'light';
   },
-  
+
   setTheme: (theme: 'light' | 'dark'): void => {
-    // Use any type to bypass TypeScript checking
-    (store as any).set('theme', theme);
+    store.set('theme', theme);
+  },
+
+  // Asset and model logging configuration
+  getLoggingLevel: (category: 'assets' | 'models'): 'verbose' | 'normal' | 'quiet' => {
+    const loggingLevels = store.get('loggingLevels') || {};
+    const level = loggingLevels[category];
+
+    // Return valid logging levels only, default to 'normal'
+    return (level === 'verbose' || level === 'normal' || level === 'quiet')
+      ? level
+      : 'normal';
+  },
+
+  setLoggingLevel: (category: 'assets' | 'models', level: 'verbose' | 'normal' | 'quiet'): void => {
+    const loggingLevels = store.get('loggingLevels') || {};
+    loggingLevels[category] = level;
+    store.set('loggingLevels', loggingLevels);
   }
 };

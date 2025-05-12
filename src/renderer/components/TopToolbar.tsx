@@ -1,40 +1,85 @@
-import React from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Menu, Search, BrainCircuit, Book, Settings as SettingsIcon, Layers } from 'lucide-react'
+import { Menu, Search, BrainCircuit, Book, Settings as SettingsIcon, Layers, Sliders, Info } from 'lucide-react'
 import { ThemeToggle } from './ThemeToggle'
 import { useAppStore } from '@/store/useAppStore'
-import { useState } from 'react'
 import { brainModels } from '@/utils/modelRegistry'
+import { rendererConfig } from '../../utils/config'
 
 interface TopToolbarProps {
   className?: string;
 }
 
 const TopToolbar = ({ className = '' }: TopToolbarProps) => {
-  const togglePanel = useAppStore((s) => s.togglePanel)
-  const selectedModel = useAppStore((s) => s.selectedId)
+  // Use individual selectors instead of object destructuring to prevent infinite loops
+  const selectedModel = useAppStore(state => state.selectedId)
+  const togglePanelAction = useAppStore(state => state.togglePanel)
+  const toggleControlPanelAction = useAppStore(state => state.toggleControlPanel)
+  const showControlPanel = useAppStore(state => state.showControlPanel)
+
+  // Use callback to prevent unnecessary recreations
+  const togglePanel = useCallback(() => {
+    togglePanelAction()
+  }, [togglePanelAction])
+
+  const toggleControlPanel = useCallback(() => {
+    toggleControlPanelAction()
+  }, [toggleControlPanelAction])
+
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState<string[]>([])
   const [showSearchResults, setShowSearchResults] = useState(false)
+
+  // Asset logging state
+  const [assetLoggingLevel, setAssetLoggingLevel] = useState<'verbose' | 'normal' | 'quiet'>(
+    rendererConfig.getLoggingLevel('assets')
+  );
+
+  // Model logging state
+  const [modelLoggingLevel, setModelLoggingLevel] = useState<'verbose' | 'normal' | 'quiet'>(
+    rendererConfig.getLoggingLevel('models')
+  );
+
+  // Show/hide logging controls
+  const [showLoggingControls, setShowLoggingControls] = useState(false);
   
+  // Handle asset logging level change
+  const handleAssetLoggingChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const level = e.target.value as 'verbose' | 'normal' | 'quiet';
+    setAssetLoggingLevel(level);
+    rendererConfig.setLoggingLevel('assets', level);
+  };
+
+  // Handle model logging level change
+  const handleModelLoggingChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const level = e.target.value as 'verbose' | 'normal' | 'quiet';
+    setModelLoggingLevel(level);
+    rendererConfig.setLoggingLevel('models', level);
+  };
+
+  // Toggle logging controls visibility
+  const toggleLoggingControls = useCallback(() => {
+    setShowLoggingControls(prev => !prev);
+  }, []);
+
   // Handle search functionality
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    
+
     if (!term) {
       setSearchResults([]);
       setShowSearchResults(false);
       return;
     }
-    
+
     // Filter models based on search term
     const results = brainModels
-      .filter(model => 
+      .filter(model =>
         model.name.toLowerCase().includes(term.toLowerCase()) ||
         model.description.toLowerCase().includes(term.toLowerCase())
       )
       .map(model => model.id);
-    
+
     setSearchResults(results);
     setShowSearchResults(true);
   }
@@ -110,8 +155,87 @@ const TopToolbar = ({ className = '' }: TopToolbarProps) => {
             onChange={(e) => handleSearch(e.target.value)}
           />
         </div>
+
+        <button
+          type="button"
+          onClick={toggleControlPanel}
+          className={`p-2 rounded transition-colors flex items-center gap-1 ${
+            showControlPanel
+              ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+              : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+          }`}
+          aria-label="Toggle controls panel"
+        >
+          <Sliders size={16} />
+          <span className="text-sm font-medium hidden md:inline">Controls</span>
+        </button>
+
+        {/* Logging Controls Toggle */}
+        <button
+          type="button"
+          onClick={toggleLoggingControls}
+          className={`p-2 rounded transition-colors flex items-center gap-1 ${
+            showLoggingControls
+              ? 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
+              : 'hover:bg-gray-200 dark:hover:bg-gray-700'
+          }`}
+          aria-label="Toggle logging controls"
+          title="Logging Settings"
+        >
+          <Info size={16} />
+        </button>
+
         <ThemeToggle />
       </div>
+
+      {/* Logging Controls Dropdown */}
+      {showLoggingControls && (
+        <div className="absolute top-14 right-12 w-72 bg-white dark:bg-gray-800 rounded-md shadow-lg z-20 border border-gray-200 dark:border-gray-700">
+          <div className="p-3">
+            <h3 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">Logging Controls</h3>
+
+            <div className="space-y-3">
+              {/* Asset Logging Control */}
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-700 dark:text-gray-300">
+                  Asset Logging:
+                </label>
+                <select
+                  value={assetLoggingLevel}
+                  onChange={handleAssetLoggingChange}
+                  className="text-sm p-1 rounded border border-gray-300 dark:border-gray-600
+                           bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                >
+                  <option value="verbose">Verbose</option>
+                  <option value="normal">Normal</option>
+                  <option value="quiet">Quiet</option>
+                </select>
+              </div>
+
+              {/* Model Logging Control */}
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-700 dark:text-gray-300">
+                  Model Logging:
+                </label>
+                <select
+                  value={modelLoggingLevel}
+                  onChange={handleModelLoggingChange}
+                  className="text-sm p-1 rounded border border-gray-300 dark:border-gray-600
+                           bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                >
+                  <option value="verbose">Verbose</option>
+                  <option value="normal">Normal</option>
+                  <option value="quiet">Quiet</option>
+                </select>
+              </div>
+
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
+                Changes take effect immediately for new asset loading operations.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search results dropdown */}
       {showSearchResults && searchResults.length > 0 && (
@@ -146,4 +270,4 @@ const TopToolbar = ({ className = '' }: TopToolbarProps) => {
   )
 }
 
-export default TopToolbar
+export default React.memo(TopToolbar)

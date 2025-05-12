@@ -12,6 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - Build electron main process: `npm run build:electron`
   - Build complete app: `npm run build`
 - **Run the production build**: `npm run start`
+- **Analyze bundle size**: `npm run analyze`
+- **Type checking**: `npm run typecheck`
+- **Run tests**: `npm run test`
 
 ### Asset Setup
 
@@ -22,7 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-This is an Electron-based application using React, Three.js, and TailwindCSS for visualizing 3D brain models. The application follows a typical Electron structure with main and renderer processes.
+This is an Electron-based application using React, React Three Fiber, and TailwindCSS for visualizing 3D brain models in an interactive 3D environment with advanced visualization features.
 
 ### Main Process
 
@@ -36,50 +39,92 @@ This is an Electron-based application using React, Three.js, and TailwindCSS for
 - Built with React, React Three Fiber, and TailwindCSS
 - Uses Zustand for state management (`src/renderer/store/useAppStore.ts`)
 - Main visualization is handled by `NeuroScene.tsx` component
-- 3D models are loaded using `loadModel.ts` with Draco compression support
+- 3D models are loaded using the enhanced LOD system in `ModelOptimizer.ts`
 - Models are defined in `modelRegistry.ts`
 
 ### State Management
 
-- Uses Zustand for state management with three main slices:
+- Uses Zustand for state management with specialized slices:
   - `ModelsSlice`: Handles 3D model selection, loading, and caching
   - `UiSlice`: Manages UI state like theme and panel visibility
-  - `QuizSlice`: Handles quiz mode functionality
+  - `ViewportSlice`: Manages multiple viewport configurations
+  - `SelectionSlice`: Handles structure selection and highlighting
+  - `AnnotationSlice`: Manages annotations and their properties
+  - `ClippingSlice`: Controls cross-sectional viewing
+  - `MeasurementSlice`: Manages distance measurement tools
 
 ### 3D Model Loading Pipeline
 
 1. Models are registered in `modelRegistry.ts`
-2. Models are loaded via `loadModel.ts` which:
-   - Checks the cache for previously loaded models
-   - Sets up GLTF and Draco loaders
-   - Attempts to load models with fallback strategies 
-   - Returns fallback models if loading fails
+2. Model loading is handled by `ModelOptimizer.ts` which:
+   - Loads appropriate LOD (Level of Detail) based on camera distance
+   - Manages pre-generated LOD models for each brain structure
+   - Properly handles model caching and memory management
+   - Implements efficient material handling with proper resource disposal
 
-### Layout Structure
+### Visualization Features
 
-- Main page is `Viewer.tsx` which contains:
-  - `TopToolbar`: Navigation and controls
-  - `NeuroScene`: 3D visualization area
-  - `SidePanel`: Model selection and information
-  - `StatusBar`: Status information and secondary controls
+- **Multi-viewport System**: Multiple synchronized views (axial, sagittal, coronal, 3D)
+- **Cross-sectional Viewing**: Cut through models along any axis with highlighted cut edges
+- **Structure Selection**: Interactive selection of specific brain parts with highlighting
+- **Measurement Tools**: Distance measurement between points in 3D space
+- **Annotation System**: Create, edit, and manage annotations with smart label placement
+- **Performance Optimization**: LOD system, instanced rendering, and efficient resource management
+
+### Component Structure
+
+- Organized by feature domain:
+  - `/components/camera`: Camera controls and management
+  - `/components/models`: Model loading and rendering
+  - `/components/viewport`: Multi-viewport system
+  - `/components/clipping`: Cross-sectional viewing
+  - `/components/selection`: Structure selection and highlighting
+  - `/components/annotations`: Annotation system
+  - `/components/measurement`: Distance measurement tools
+  - `/components/errors`: Error handling components
+  - `/components/loading`: Loading indicators and progress tracking
 
 ## Common Development Tasks
 
 ### Adding New 3D Models
 
-1. Place GLB files in `public/assets/models/`
-2. Register them in `src/renderer/utils/modelRegistry.ts` by adding to the `brainModels` array
-3. Ensure Draco decoders are available in `public/draco/`
+1. Prepare models in multiple resolutions (high, medium, low)
+2. Place GLB files in appropriate directories:
+   - High resolution: `public/assets/models/high/`
+   - Medium resolution: `public/assets/models/medium/`
+   - Low resolution: `public/assets/models/low/`
+3. Register them in `src/renderer/utils/modelRegistry.ts` by adding to the `brainModels` array
+4. Add structure mapping information if supporting part selection
 
-### Debugging Model Loading Issues
+### Working with Brain Structure Parts
 
-1. Enable debug mode in the UI
-2. Check browser console for loading logs
-3. Verify model paths are correct in `modelRegistry.ts`
-4. Ensure models are properly placed in the `public/assets/models/` directory
+1. Define structure metadata in `brainPartRegistry.ts`
+2. Map mesh names to structure IDs and metadata
+3. Add appropriate highlighting colors and descriptions
+
+### Creating New Viewports
+
+1. Use `ViewportLayout` component for multi-view rendering
+2. Configure viewport types (perspective, orthographic)
+3. Set up appropriate camera positions and targets
+4. Link viewports as needed for synchronized navigation
+
+### Adding Annotations
+
+1. Use the `AnnotationSystem` for creating and managing annotations
+2. Configure smart label placement to prevent overlaps
+3. Use the annotation persistence system for saving user annotations
 
 ### Theme Development
 
 - TailwindCSS is configured for light/dark mode
 - Theme is controlled via Zustand's `theme` state
 - Custom colors and animations are defined in `tailwind.config.js`
+
+## Performance Considerations
+
+- Use the LOD system for large models (see `ModelOptimizer.ts`)
+- Enable instancing for repeated geometries
+- Properly dispose of Three.js resources when no longer needed
+- Use the performance monitoring tools in development mode
+- Consider frustum culling and occlusion culling for complex scenes

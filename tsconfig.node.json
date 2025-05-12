@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": ["node"],
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "rootDir": "."
+  },
+  "include": ["vite.config.ts", "vitest.config.ts", "src/main/preload.ts", "src/main/preload/**/*.ts"]
+}

@@ -49,4 +49,9 @@ declare global {
       children: {};
     }
   }
+
+  // Draco decoder path (electron API is defined in src/renderer/llm/useLLMStore.ts)
+  interface Window {
+    dracoDecoderPath: string;
+  }
 }

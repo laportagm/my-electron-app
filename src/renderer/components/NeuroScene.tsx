@@ -1,357 +1,282 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
-import { OrbitControls, Grid, PerspectiveCamera, GizmoHelper, GizmoViewport, Environment, Center, Text } from '@react-three/drei'
+import { OrbitControls, Grid, PerspectiveCamera, GizmoHelper, GizmoViewport } from '@react-three/drei'
+import BrainModel from './BrainModel'
+import MultipleModels from './MultipleModels'
+import FallbackCube from './FallbackCube'
+import PerformanceMonitor from './performance/PerformanceMonitor'
+import AnnotationLayer from './annotations/AnnotationLayer'
+import { ControlPanel } from './controls/ControlPanel'
+import { useAppStore, shallow } from '@/store/useAppStore'
 import * as THREE from 'three'
-// Import AppState type from the store file
-import { useAppStore, AppState } from '@/store/useAppStore'
-import { loadModel } from '@/utils/loadModel'
-import { getModelById, brainModels, logModelPaths } from '@/utils/modelRegistry'
-import LoadingOverlay from './LoadingOverlay'
-import { Layers } from 'lucide-react'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 
-type ModelId = string;
-type Model3D = THREE.Group;
-
-function useModelControls() {
-  const resetView = useAppStore(useCallback((state: AppState) => state.resetView, []));
-  const focusOnModel = useAppStore(useCallback((state: AppState) => state.focusOnModel, []));
-  const setLoading = useAppStore(useCallback((state: AppState) => state.setLoading, []));
-  const setCurrentModelRef = useAppStore(useCallback((state: AppState) => state.setCurrentModelRef, []));
-  const setCameraRef = useAppStore(useCallback((state: AppState) => state.setCameraRef, []));
-  const setOrbitControlsRef = useAppStore(useCallback((state: AppState) => state.setOrbitControlsRef, []));
-  const setSelected = useAppStore(useCallback((state: AppState) => state.setSelected, []));
-  return { resetView, focusOnModel, setLoading, setCurrentModelRef, setCameraRef, setOrbitControlsRef, setSelected };
+interface NeuroSceneProps {
+  className?: string;
 }
 
-function DebugCube() {
-  const [visible, setVisible] = useState(true);
-  useEffect(() => {
-    const timer = setInterval(() => setVisible(v => !v), 2000);
-    return () => clearInterval(timer);
-  }, []);
-  if (!visible) return null;
-  return (
-    <mesh position={[0, 0, 0]} castShadow receiveShadow>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="red" roughness={0.5} />
-    </mesh>
-  );
-}
+// CameraController component to connect orbit controls to Zustand store
+const CameraController = memo(function CameraController() {
+  const { camera } = useThree();
+  const controlsRef = useRef<any>(null);
 
-// Add a debug component to help diagnose model loading
-function ModelDebugger() {
-  const { scene } = useThree();
-  const selectedId = useAppStore(s => s.selectedId);
-  const currentModel = useAppStore(s => s.currentModelRef);
-  
-  // Log model information when selected changes
+  // Use individual selectors to prevent unnecessary re-renders
+  const setOrbitControlsRef = useAppStore(state => state.setOrbitControlsRef);
+  const setCameraRef = useAppStore(state => state.setCameraRef);
+
+  // Memoize the effect dependencies
+  const memoizedSetOrbitControlsRef = useCallback((ref: any) => {
+    setOrbitControlsRef(ref);
+  }, [setOrbitControlsRef]);
+
+  const memoizedSetCameraRef = useCallback((cam: THREE.PerspectiveCamera | null) => {
+    setCameraRef(cam);
+  }, [setCameraRef]);
+
   useEffect(() => {
-    if (selectedId) {
-      console.log('🔍 Model debugger - Selected ID:', selectedId);
-      const modelInfo = getModelById(selectedId);
-      console.log('Model information:', modelInfo);
-      
-      // Check if model exists in the scene
-      if (currentModel) {
-        console.log('Current model in scene:', currentModel);
-      } else {
-        console.warn('No model in scene yet for selected ID:', selectedId);
-      }
-      
-      // Log all scene children
-      console.log('Current scene children:', scene.children);
-      
-      // Log all available model paths for debugging
-      logModelPaths();
+    if (controlsRef.current) {
+      memoizedSetOrbitControlsRef(controlsRef.current);
     }
-  }, [selectedId, currentModel, scene]);
-  
-  // Detect if WebGL is available
-  useEffect(() => {
-    try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-      if (!gl) {
-        console.error('WebGL not supported in this browser!');
-      } else {
-        console.log('WebGL is supported! Extensions:', gl.getSupportedExtensions());
-      }
-    } catch (e) {
-      console.error('Error checking WebGL support:', e);
+    if (camera instanceof THREE.PerspectiveCamera) {
+      memoizedSetCameraRef(camera);
     }
-  }, []);
-  
-  return null; // This component doesn't render anything
-}
 
-function DracoTestModel() {
-  const { scene } = useThree();
-  useEffect(() => {
-    // Test if we can create and add objects to the scene
-    const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-    const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
-    const cube = new THREE.Mesh(geometry, material);
-    cube.position.set(2, 0, 0);
-    cube.name = 'debugCube';
-    scene.add(cube);
-    
-    console.log('Added debug cube to scene:', cube);
-    
     return () => {
-      const debugCube = scene.getObjectByName('debugCube');
-      if (debugCube) {
-        scene.remove(debugCube);
-        if (debugCube instanceof THREE.Mesh) {
-          debugCube.geometry.dispose();
-          if (Array.isArray(debugCube.material)) {
-            debugCube.material.forEach(mat => mat.dispose());
-          } else {
-            debugCube.material.dispose();
-          }
-        }
-      }
+      memoizedSetOrbitControlsRef(null);
+      memoizedSetCameraRef(null);
     };
-  }, [scene]);
-  return null;
-}
+  }, [memoizedSetOrbitControlsRef, memoizedSetCameraRef, camera]);
 
-function disposeSingleMaterial(material: THREE.Material) {
-  if (!material) return;
-  (Object.values(material) as any[]).forEach(val => { if (val?.dispose instanceof Function) val.dispose(); });
-  material.dispose();
-}
-function disposeMaterial(mat: THREE.Material | THREE.Material[]) {
-  Array.isArray(mat) ? mat.forEach(disposeSingleMaterial) : disposeSingleMaterial(mat);
-}
+  return <OrbitControls ref={controlsRef} enablePan enableZoom enableRotate />;
+});
 
-function BrainModel() {
-  const { scene } = useThree();
-  const selectedId = useAppStore(s => s.selectedId);
-  const modelRef = useRef<Model3D | null>(null);
-  const [loadedId, setLoadedId] = useState<ModelId | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const { setCurrentModelRef, setLoading, setSelected } = useModelControls();
+// Debug Panel - extracted as separate component for better rendering isolation
+const DebugPanel = memo(({ isVisible }: { isVisible: boolean }) => {
+  // Use individual selectors to prevent unnecessary re-renders
+  const showMultiple = useAppStore(state => state.showMultiple);
+  const selectedId = useAppStore(state => state.selectedId);
+  const selectedIds = useAppStore(state => state.selectedIds);
+  const isLoading = useAppStore(state => state.isLoading);
 
-  useEffect(() => {
-    if (modelRef.current) setCurrentModelRef(modelRef.current);
-    return () => setCurrentModelRef(null);
-  }, [loadedId]);
+  if (!isVisible) return null;
 
-  useEffect(() => {
-    let mounted = true;
-    async function loadAndShow() {
-      if (!selectedId) {
-        if (modelRef.current) {
-          scene.remove(modelRef.current);
-          modelRef.current.traverse(o => {
-            if ((o as THREE.Mesh).isMesh) {
-              (o as THREE.Mesh).geometry.dispose();
-              disposeMaterial((o as THREE.Mesh).material);
-            }
-          });
-          modelRef.current = null;
-          setLoadedId(null);
-          setCurrentModelRef(null);
-        }
-        return;
-      }
-      
-      if (loadedId === selectedId) return;
-      
-      console.log(`🧠 Loading brain model: ${selectedId}`);
-      setLoading(true);
-      setLoadError(null);
-      
-      if (modelRef.current) {
-        scene.remove(modelRef.current);
-        modelRef.current.traverse(o => {
-          if ((o as THREE.Mesh).isMesh) {
-            (o as THREE.Mesh).geometry.dispose();
-            disposeMaterial((o as THREE.Mesh).material);
-          }
-        });
-        modelRef.current = null;
-      }
-      
-      try {
-        const info = getModelById(selectedId);
-        if (!info) {
-          throw new Error(`Model information not found for ID: ${selectedId}`);
-        }
-        
-        console.log(`Loading model with info:`, info);
-        
-        const model = await loadModel({ 
-          id: selectedId, 
-          lowUrl: info.lowPolyUrl, 
-          highUrl: info.highPolyUrl 
-        });
-        
-        if (!mounted) return;
-        
-        console.log(`Model loaded successfully:`, model);
-        modelRef.current = model;
-        model.userData.id = selectedId;
-        
-        // Center the model
-        const box = new THREE.Box3().setFromObject(model);
-        model.position.sub(box.getCenter(new THREE.Vector3()));
-        
-        // Adjust scale if needed
-        const size = box.getSize(new THREE.Vector3());
-        const maxSize = Math.max(size.x, size.y, size.z);
-        if (maxSize > 10) {
-          const scale = 5 / maxSize;
-          model.scale.set(scale, scale, scale);
-          console.log(`Model scaled by ${scale} to fit view`);
-        }
-        
-        scene.add(model);
-        console.log(`Model added to scene`);
-        setLoadedId(selectedId);
-      } catch (e: any) {
-        console.error(`Error loading model:`, e);
-        setLoadError(e.message || 'Unknown error loading model');
-        
-        // Try to load the next model after a delay if this one failed
-        setTimeout(() => {
-          if (!mounted) return;
-          const idx = brainModels.findIndex(m => m.id === selectedId);
-          const next = brainModels[(idx + 1) % brainModels.length];
-          if (next.id !== selectedId) {
-            console.log(`Trying next model: ${next.id}`);
-            setSelected(next.id);
-          }
-        }, 2000);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-    
-    loadAndShow();
-    return () => { mounted = false; };
-  }, [selectedId]);
-
-  if (loadError) return (
-    <Center>
-      <Text color="red" fontSize={0.2} maxWidth={4} textAlign="center">{loadError}</Text>
-    </Center>
-  );
-  return null;
-}
-
-function ViewportInfo() {
-  const sel = useAppStore(s => s.selectedId);
-  if (sel) return null;
   return (
-    <group position={[0, -2.5, 0]}> 
-      <Text color="#9ca3af" fontSize={0.2} anchorX="center" anchorY="middle">
-        Select a brain region from the panel
-      </Text>
-    </group>
+    <div className="absolute top-2 left-2 bg-black/60 text-white p-2 rounded text-xs shadow-lg select-none">
+      <div>Debug Mode: Enabled</div>
+      <div>Mode: {showMultiple ? 'Multiple Models' : 'Single Model'}</div>
+      <div>Selected: {showMultiple ? selectedIds.length + ' models' : selectedId || 'None'}</div>
+      <div>Loading Status: {isLoading ? 'Loading...' : 'Idle'}</div>
+    </div>
   );
-}
+});
 
-function Initialization() {
-  const sel = useAppStore(s => s.selectedId);
-  const loading = useAppStore(s => s.isLoading);
-  const { setSelected } = useModelControls();
-  
-  // Log all available models for debugging
-  useEffect(() => {
-    console.log('Available brain models:', brainModels);
-    logModelPaths();
-  }, []);
-  
-  useEffect(() => {
-    if (!sel && !loading && brainModels.length) {
-      console.log(`Auto-selecting first model: ${brainModels[0].id}`);
-      const t = setTimeout(() => setSelected(brainModels[0].id), 100);
-      return () => clearTimeout(t);
+// Loading Overlay - extracted as separate component
+const LoadingOverlay = memo(({ isLoading }: { isLoading: boolean }) => {
+  if (!isLoading) return null;
+
+  return (
+    <div className="absolute inset-0 bg-black/20 flex items-center justify-center pointer-events-none">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg text-center">
+        <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+        <div className="text-sm font-medium">Loading model...</div>
+      </div>
+    </div>
+  );
+});
+
+// Control buttons component
+const ControlButtons = memo(({ debugMode, setDebugMode }: {
+  debugMode: boolean;
+  setDebugMode: (newValue: boolean | ((prevState: boolean) => boolean)) => void
+}) => {
+  // Use individual selectors for actions
+  const resetViewAction = useAppStore(state => state.resetView);
+  const focusOnModelAction = useAppStore(state => state.focusOnModel);
+  const togglePerformanceMonitorAction = useAppStore(state => state.togglePerformanceMonitor);
+  const showPerformanceMonitor = useAppStore(state => state.showPerformanceMonitor);
+
+  // Memoize callback functions to prevent unnecessary re-renders
+  const resetView = useCallback(() => {
+    resetViewAction();
+  }, [resetViewAction]);
+
+  const focusOnModel = useCallback(() => {
+    focusOnModelAction();
+  }, [focusOnModelAction]);
+
+  const toggleDebugMode = useCallback(() => {
+    setDebugMode(prev => !prev);
+  }, [setDebugMode]);
+
+  const togglePerformanceMonitor = useCallback(() => {
+    togglePerformanceMonitorAction();
+  }, [togglePerformanceMonitorAction]);
+
+  // Take screenshot function
+  const takeScreenshot = useCallback(() => {
+    const canvas = document.querySelector('canvas');
+    if (canvas) {
+      const link = document.createElement('a');
+      link.download = 'brain-model-screenshot.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
     }
-  }, [sel, loading]);
-  
-  return null;
-}
+  }, []);
 
-interface NeuroSceneProps { className?: string; }
-export default function NeuroScene({ className = '' }: NeuroSceneProps) {
-  const isLoading = useAppStore(s => s.isLoading);
-  const selectedId = useAppStore(s => s.selectedId);
-  const sidePanel = useAppStore(s => s.sidePanelOpen);
-  const currentModel = useAppStore(s => s.currentModelRef);
-  const [debugMode, setDebugMode] = useState(true); // Set to true by default for debugging
-  const [cameraInfo, setCameraInfo] = useState('');
-  const { resetView, focusOnModel, setCameraRef, setOrbitControlsRef } = useModelControls();
+  return (
+    <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 flex items-center gap-2 p-1.5 bg-glass shadow-neumorph rounded-full">
+      {/* Camera Controls */}
+      <div className="flex items-center gap-1 mr-2">
+        <button
+          onClick={resetView}
+          className="btn-circle text-gray-800 dark:text-gray-200 bg-white/80 dark:bg-gray-800/80 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors tooltip"
+          aria-label="Reset camera view"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          <span className="tooltip-text -mt-8">Reset View</span>
+        </button>
 
-  const handleReset = useCallback(() => resetView(), [resetView]);
-  const handleFocus = useCallback(() => focusOnModel(), [focusOnModel]);
-  const camRef = useCallback((cam: THREE.PerspectiveCamera | null) => {
-    if (cam) { setCameraRef(cam); if (debugMode) setCameraInfo(`Pos: ${cam.position.x.toFixed(1)}, ${cam.position.y.toFixed(1)}, ${cam.position.z.toFixed(1)}`); }
-  }, [debugMode]);
-  const orbitRef = useCallback((o: any) => { if (o) setOrbitControlsRef(o); }, []);
-  const toggleDebug = () => setDebugMode(dm => !dm);
+        <button
+          onClick={focusOnModel}
+          className="btn-circle text-gray-800 dark:text-gray-200 bg-white/80 dark:bg-gray-800/80 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors tooltip"
+          aria-label="Focus on selected model"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <circle cx="12" cy="12" r="4"></circle>
+          </svg>
+          <span className="tooltip-text -mt-8">Focus on Model</span>
+        </button>
+      </div>
+
+      {/* Viewing Modes */}
+      <div className="bg-white/40 dark:bg-gray-900/40 h-6 w-px mx-1"></div>
+
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => console.log('Wireframe mode')}
+          className="btn-circle text-gray-800 dark:text-gray-200 bg-white/80 dark:bg-gray-800/80 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors tooltip"
+          aria-label="Wireframe mode"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline>
+            <polyline points="17 18 23 18 23 12"></polyline>
+          </svg>
+          <span className="tooltip-text -mt-8">Wireframe</span>
+        </button>
+
+        <button
+          onClick={() => console.log('X-ray mode')}
+          className="btn-circle text-gray-800 dark:text-gray-200 bg-white/80 dark:bg-gray-800/80 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors tooltip"
+          aria-label="X-ray view"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2l2 8.16l8-2.47l-6.39 5.31l6.39 5.31l-8-2.47l-2 8.16l-2-8.16l-8 2.47l6.39-5.31L2 7.69l8 2.47L12 2z"></path>
+          </svg>
+          <span className="tooltip-text -mt-8">X-Ray View</span>
+        </button>
+      </div>
+
+      {/* Development Tools */}
+      <div className="bg-white/40 dark:bg-gray-900/40 h-6 w-px mx-1"></div>
+
+      <button
+        onClick={toggleDebugMode}
+        className={`btn-circle transition-colors tooltip ${
+          debugMode
+            ? 'bg-green-500 text-white hover:bg-green-600'
+            : 'bg-white/80 dark:bg-gray-800/80 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+        }`}
+        aria-label={debugMode ? "Turn off debug mode" : "Turn on debug mode"}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+        </svg>
+        <span className="tooltip-text -mt-8">Debug: {debugMode ? 'ON' : 'OFF'}</span>
+      </button>
+
+      <button
+        onClick={togglePerformanceMonitor}
+        className={`btn-circle transition-colors tooltip ${
+          showPerformanceMonitor
+            ? 'bg-purple-500 text-white hover:bg-purple-600'
+            : 'bg-white/80 dark:bg-gray-800/80 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700'
+        }`}
+        aria-label={showPerformanceMonitor ? "Hide performance monitor" : "Show performance monitor"}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+        <span className="tooltip-text -mt-8">Performance: {showPerformanceMonitor ? 'ON' : 'OFF'}</span>
+      </button>
+
+      {/* Screenshot button */}
+      <button
+        onClick={takeScreenshot}
+        className="btn-circle text-gray-800 dark:text-gray-200 bg-white/80 dark:bg-gray-800/80 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors tooltip"
+        aria-label="Take screenshot"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+        <span className="tooltip-text -mt-8">Screenshot</span>
+      </button>
+    </div>
+  );
+});
+
+// Main scene component
+function NeuroScene({ className = '' }: NeuroSceneProps) {
+  const [debugMode, setDebugMode] = useState(true);
+
+  // Use individual selectors to prevent unnecessary re-renders
+  const selectedId = useAppStore(state => state.selectedId);
+  const showMultiple = useAppStore(state => state.showMultiple);
+  const isLoading = useAppStore(state => state.isLoading);
+  const showPerformanceMonitor = useAppStore(state => state.showPerformanceMonitor);
+  const showControlPanel = useAppStore(state => state.showControlPanel);
 
   return (
     <div className={`relative w-full h-full ${className}`}>
-      {isLoading && <LoadingOverlay />}
-      {!isLoading && !currentModel && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg text-center z-10">
-          <h3 className="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Select a Brain Model</h3>
-          <p className="text-gray-600 dark:text-gray-300 mb-3">
-            {sidePanel ? 'Choose a model from the side panel.' : <>Click <span className="font-bold">Models</span> to open panel.</>}
-          </p>
-          <Layers size={32} className="text-blue-500 dark:text-blue-400" />
-        </div>
-      )}
-
-      <Canvas shadows gl={{ antialias: true, alpha: true }} onCreated={({ gl }) => { if (debugMode) console.log('WebGL ready:', gl); }}>
-        <PerspectiveCamera makeDefault position={[0,1,7]} fov={50} near={0.1} far={1000} ref={camRef} onUpdate={cam => debugMode && setCameraInfo(`Pos: ${cam.position.x.toFixed(1)}, ${cam.position.y.toFixed(1)}, ${cam.position.z.toFixed(1)}`)} />
+      <Canvas shadows>
+        <PerspectiveCamera makeDefault position={[0,1,7]} fov={50} />
         <ambientLight intensity={0.9} />
-        <spotLight position={[10,10,10]} angle={0.25} penumbra={0.5} intensity={200} castShadow shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+        <spotLight position={[10,10,10]} angle={0.25} penumbra={0.5} intensity={200} />
         <directionalLight position={[-5,5,5]} intensity={0.8} />
-        <hemisphereLight args={["#e0e5ff","#404060",0.8]} />
 
-        <Grid position={[0,-2.05,0]} args={[30,30]} cellSize={0.5} cellThickness={0.8} cellColor="#777777" sectionSize={2.5} sectionThickness={1.2} sectionColor="#555555" fadeDistance={35} fadeStrength={1} infiniteGrid />
-        <Environment preset="sunset" background blur={0.5} />
+        <Grid position={[0,-2.05,0]} args={[30,30]} cellSize={0.5} cellThickness={0.8}
+              cellColor="#777777" sectionSize={2.5} sectionThickness={1.2}
+              sectionColor="#555555" fadeDistance={35} fadeStrength={1} infiniteGrid />
 
-        {debugMode && <axesHelper args={[3]} />}
-        {debugMode && <><DracoTestModel /><DebugCube /></>}
-        {debugMode && <ModelDebugger />}
+        {showMultiple ? (
+          <MultipleModels />
+        ) : selectedId ? (
+          <>
+            <BrainModel modelId={selectedId} />
+            {/* Add the AnnotationLayer component for the currently selected model */}
+            <AnnotationLayer modelId={selectedId} />
+          </>
+        ) : (
+          <FallbackCube />
+        )}
 
-        <Initialization />
-        <Center top><BrainModel /></Center>
-        {!isLoading && !selectedId && <ViewportInfo />}
-
-        <OrbitControls ref={orbitRef} enablePan enableZoom enableRotate minDistance={1} maxDistance={30} maxPolarAngle={Math.PI/1.6} makeDefault onChange={(e) => {
-            // guard against undefined event or missing target
-            if (!e?.target) return;
-            const obj = (e.target as any).object as THREE.PerspectiveCamera | undefined;
-            if (debugMode && obj?.isPerspectiveCamera) {
-              setCameraInfo(
-                `Pos: ${obj.position.x.toFixed(1)}, ${obj.position.y.toFixed(1)}, ${obj.position.z.toFixed(1)}`
-              );
-            }
-          }} />
-        <GizmoHelper alignment="bottom-right" margin={[80,80]}><GizmoViewport axisColors={["#ff3030","#30ff30","#3030ff"]} labelColor="white" /></GizmoHelper>
+        <CameraController />
+        <GizmoHelper alignment="bottom-right" margin={[80,80]}>
+          <GizmoViewport axisColors={["#ff3030","#30ff30","#3030ff"]} labelColor="white" />
+        </GizmoHelper>
       </Canvas>
 
-      <div className="absolute bottom-5 left-1/2 transform -translate-x-1/2 flex items-center gap-2.5 p-1 bg-black/10 dark:bg-white/10 backdrop-blur-sm rounded-full">
-        <button onClick={handleReset} className="px-3 py-1.5 text-sm rounded-full bg-blue-500 text-white">Reset View</button>
-        <button onClick={handleFocus} disabled={!currentModel||isLoading} className={`px-3 py-1.5 text-sm rounded-full ${(!currentModel||isLoading) ? 'bg-gray-400 text-gray-300' : 'bg-blue-500 text-white'}`}>Focus Model</button>
-        <button onClick={toggleDebug} className={`px-3 py-1.5 text-sm rounded-full ${debugMode ? 'bg-green-500' : 'bg-gray-500'} text-white`}>Debug: {debugMode?'ON':'OFF'}</button>
-      </div>
-
-      {debugMode && (
-        <div className="absolute top-2 left-2 bg-black/60 text-white p-2 rounded text-xs shadow-lg select-none">
-          <div>Selected ID: {selectedId||'None'}</div>
-          <div>Model Loaded: {currentModel?'Yes':'No'}</div>
-          <div>Camera: {cameraInfo}</div>
-          <div>Loading: {isLoading?'Yes':'No'}</div>
-        </div>
-      )}
+      <ControlButtons debugMode={debugMode} setDebugMode={setDebugMode} />
+      <DebugPanel isVisible={debugMode} />
+      <LoadingOverlay isLoading={isLoading} />
+      {/* Temporarily disabling PerformanceMonitor until React Three Fiber integration is fixed */}
+      {/* {(debugMode || showPerformanceMonitor) && <PerformanceMonitor />} */}
+      {showControlPanel && <ControlPanel modelId={selectedId} />}
     </div>
-  )
+  );
 }
+
+export default memo(NeuroScene);

@@ -13,18 +13,55 @@
     },
     "claude-code": {
       "type": "stdio",
-      "command": "claude-code-mcp",
+      "command": "/opt/homebrew/bin/claude-code-mcp",
       "args": [],
-      "env": {}
+      "env": {
+        "CLAUDE_BIN": "/opt/homebrew/bin/claude"
+      }
     },
     "code-analysis": {
       "type": "stdio",
-      "command": "uv",
+      "command": "/opt/homebrew/bin/uv",
       "args": [
         "--directory",
-        "./tools/code-analysis-mcp",
+        "/Users/gagelaporta/my-electron-app1-2/tools/code-analysis-mcp",
         "run",
         "code_analysis.py"
+      ],
+      "env": {}
+    },
+    "git-mcp": {
+      "type": "stdio",
+      "command": "/opt/homebrew/bin/git-mcp-server",
+      "args": [],
+      "env": {}
+    },
+    "magic-ui": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@magicuidesign/mcp@latest"
+      ],
+      "env": {}
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "env": {
+        "MEMORY_FILE_PATH": "/Users/gagelaporta/my-electron-app1-2/.mcp-data/memory.json"
+      }
+    },
+    "memory-bank": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "memory-bank-mcp-server"
       ],
       "env": {}
     }

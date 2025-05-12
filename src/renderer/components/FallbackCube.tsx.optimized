@@ -1,0 +1,58 @@
+import React from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+
+interface FallbackCubeProps {
+  isError?: boolean;
+  color?: string;
+  scale?: number;
+  speed?: number;
+}
+
+/**
+ * Fallback cube component that shows a rotating cube
+ * Can be customized for different states (loading, error)
+ */
+const FallbackCube: React.FC<FallbackCubeProps> = React.memo(({
+  isError = false,
+  color = '#ff6700',
+  scale = 1,
+  speed = 1
+}) => {
+  const meshRef = React.useRef<THREE.Mesh | null>(null);
+  
+  // Use appropriate color based on state
+  const cubeColor = isError ? '#ff0000' : color;
+  
+  // Rotate the cube on every frame
+  useFrame((state, delta) => {
+    if (meshRef.current) {
+      // Rotate differently based on state
+      if (isError) {
+        // Jittery rotation for error state
+        meshRef.current.rotation.x += delta * speed * (0.5 + Math.random() * 0.5);
+        meshRef.current.rotation.y += delta * speed * (0.3 + Math.random() * 0.5);
+        meshRef.current.rotation.z += delta * speed * 0.2;
+      } else {
+        // Smooth rotation for normal state
+        meshRef.current.rotation.x += delta * speed;
+        meshRef.current.rotation.y += delta * speed * 0.5;
+      }
+    }
+  });
+  
+  return (
+    <mesh ref={meshRef} scale={[scale, scale, scale]}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color={cubeColor} />
+      <lineSegments>
+        <edgesGeometry args={[new THREE.BoxGeometry(1, 1, 1)]} />
+        <lineBasicMaterial color="#ffffff" />
+      </lineSegments>
+    </mesh>
+  );
+});
+
+FallbackCube.displayName = 'FallbackCube';
+
+export default FallbackCube;

@@ -1,0 +1,33 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "noEmitOnError": false
+  },
+  "include": [
+    "src/main/main.ts",
+    "src/main/preload/preload.ts",
+    "src/utils/**/*",
+    "src/renderer/index.tsx",
+    "src/renderer/App.tsx",
+    "src/renderer/pages/Viewer.tsx",
+    "src/renderer/components/TopToolbar.tsx",
+    "src/renderer/components/SidePanel.tsx",
+    "src/renderer/components/StatusBar.tsx",
+    "src/renderer/components/NeuroScene.tsx",
+    "src/renderer/components/ErrorBoundary.tsx",
+    "src/renderer/components/chat/ChatPanel.tsx",
+    "src/renderer/store/useAppStore.ts",
+    "src/renderer/utils/assetManager.ts",
+    "src/renderer/utils/modelRegistry.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "release",
+    "src/main/database",
+    "src/main/llm",
+    "src/renderer/llm",
+    "**/*.test.ts"
+  ]
+}

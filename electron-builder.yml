@@ -1,0 +1,78 @@
+appId: com.example.brainanatomyapp
+productName: Brain Anatomy Visualizer
+copyright: Copyright © 2025
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - node_modules/**/*
+  - package.json
+
+extraResources:
+  - from: public/assets/models
+    to: assets/models
+    filter:
+      - "**/*.glb"
+  - from: public/draco
+    to: draco
+  - from: resources/llm-models
+    to: llm-models
+    filter:
+      - "**/*.gguf"
+
+publish:
+  provider: github
+  owner: 
+  repo: 
+
+mac:
+  category: public.app-category.education
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+win:
+  target:
+    - nsis
+    - portable
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ${productName}
+
+portable:
+  artifactName: ${productName}-${version}-portable.exe
+
+linux:
+  target:
+    - AppImage
+    - deb
+    - rpm
+  category: Education
+  maintainer: 
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+compression: normal
+
+afterSign: build/notarize.js

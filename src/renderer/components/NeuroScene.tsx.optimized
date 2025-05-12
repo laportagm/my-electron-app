@@ -1,0 +1,134 @@
+import React, { useState, useMemo } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { Grid, PerspectiveCamera, GizmoHelper, GizmoViewport } from '@react-three/drei'
+import BrainModel from './models/BrainModel'
+import MultipleModels from './MultipleModels'
+import FallbackCube from './FallbackCube.tsx.optimized'
+import { CameraController, CameraControlsUI } from './camera/CameraController'
+import ModelLoadingErrorBoundary from './errors/ModelLoadingErrorBoundary'
+import { useModelSelectionState, useModelDisplayState } from '@/store/useAppStore'
+import LoadingOverlay from './loading/LoadingOverlay'
+
+interface NeuroSceneProps {
+  className?: string;
+}
+
+/**
+ * Debug panel for scene statistics and information
+ */
+const DebugOverlay = React.memo(() => {
+  const { selectedId, selectedIds, showMultiple } = useModelSelectionState();
+  const { isLoading } = useModelDisplayState();
+  
+  return (
+    <div className="absolute top-2 left-2 bg-black/60 text-white p-2 rounded text-xs shadow-lg select-none">
+      <div>Debug Mode: Enabled</div>
+      <div>Mode: {showMultiple ? 'Multiple Models' : 'Single Model'}</div>
+      <div>Selected: {showMultiple ? selectedIds.length + ' models' : selectedId || 'None'}</div>
+      <div>Loading Status: {isLoading ? 'Loading...' : 'Idle'}</div>
+    </div>
+  );
+});
+
+DebugOverlay.displayName = 'DebugOverlay';
+
+/**
+ * Main 3D scene for brain model visualization
+ */
+const NeuroScene = ({ className = '' }: NeuroSceneProps) => {
+  // Local state for debug mode toggle
+  const [debugMode, setDebugMode] = useState(true);
+  
+  // Optimized selectors with shallow comparison
+  const { selectedId, showMultiple, selectedIds } = useModelSelectionState();
+  const { isLoading } = useModelDisplayState();
+  
+  // Memoize camera settings to prevent unnecessary re-renders
+  const cameraSettings = useMemo(() => ({
+    position: [0, 1, 7],
+    fov: 50,
+    near: 0.1,
+    far: 1000
+  }), []);
+  
+  // Memoize light settings
+  const lights = useMemo(() => ({
+    ambient: { intensity: 0.9 },
+    spot: { position: [10, 10, 10], angle: 0.25, penumbra: 0.5, intensity: 200 },
+    directional: { position: [-5, 5, 5], intensity: 0.8 }
+  }), []);
+
+  return (
+    <div className={`relative w-full h-full ${className}`}>
+      <Canvas shadows>
+        <PerspectiveCamera makeDefault {...cameraSettings} />
+        
+        {/* Lights */}
+        <ambientLight intensity={lights.ambient.intensity} />
+        <spotLight 
+          position={lights.spot.position} 
+          angle={lights.spot.angle} 
+          penumbra={lights.spot.penumbra} 
+          intensity={lights.spot.intensity} 
+        />
+        <directionalLight 
+          position={lights.directional.position} 
+          intensity={lights.directional.intensity} 
+        />
+
+        <Grid 
+          position={[0, -2.05, 0]} 
+          args={[30, 30]} 
+          cellSize={0.5} 
+          cellThickness={0.8}
+          cellColor="#777777" 
+          sectionSize={2.5} 
+          sectionThickness={1.2}
+          sectionColor="#555555" 
+          fadeDistance={35} 
+          fadeStrength={1} 
+          infiniteGrid 
+        />
+
+        {/* Brain Models with Error Boundary */}
+        <ModelLoadingErrorBoundary modelId={selectedId || undefined}>
+          {showMultiple ? (
+            <MultipleModels />
+          ) : selectedId ? (
+            <BrainModel modelId={selectedId} />
+          ) : (
+            <FallbackCube />
+          )}
+        </ModelLoadingErrorBoundary>
+
+        {/* Camera Controls */}
+        <CameraController />
+        
+        <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
+          <GizmoViewport axisColors={["#ff3030", "#30ff30", "#3030ff"]} labelColor="white" />
+        </GizmoHelper>
+      </Canvas>
+
+      {/* Camera Controls UI */}
+      <CameraControlsUI />
+
+      {/* Debug Mode Toggle Button */}
+      <button
+        onClick={() => setDebugMode(dm => !dm)}
+        className={`absolute bottom-20 left-1/2 transform -translate-x-1/2 px-3 py-1.5 text-sm rounded-full ${
+          debugMode ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500 hover:bg-gray-600'
+        } text-white transition-colors duration-150`}
+      >
+        Debug: {debugMode ? 'ON' : 'OFF'}
+      </button>
+
+      {/* Debug Overlay */}
+      {debugMode && <DebugOverlay />}
+
+      {/* Loading Overlay */}
+      {isLoading && <LoadingOverlay />}
+    </div>
+  )
+}
+
+export default React.memo(NeuroScene)

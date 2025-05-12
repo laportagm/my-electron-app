@@ -1,23 +1,50 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "lib": ["DOM", "DOM.Iterable", "ES2020"],
-    "module": "CommonJS",
-    "moduleResolution": "Node",
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "sourceMap": true,
     "outDir": "dist",
     "rootDir": "src",
     "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "alwaysStrict": true,
+    "noUncheckedIndexedAccess": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
+    "isolatedModules": true,
+    "noUnusedLocals": false, // Turned off to allow for unused imports in tests
+    "noUnusedParameters": false, // Turned off to allow for unused parameters in tests
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/renderer/*"],
       "@renderer/*": ["src/renderer/*"],
-      "@main/*": ["src/main/*"]
+      "@main/*": ["src/main/*"],
+      "@shared/*": ["src/shared/*"],
+      "@llm/*": ["src/renderer/llm/*"],
+      "@database/*": ["src/main/database/*"]
     },
-    "types": ["node", "electron", "vite/client"]
+    "types": ["node", "electron", "vite/client", "vitest/globals", "@testing-library/jest-dom", "better-sqlite3"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/main/**/*", "src/utils/**/*", "src/lib/**/*"],
+  "exclude": ["node_modules", "dist", "release", "src/renderer/**/*"],
+  "ts-node": {
+    "compilerOptions": {
+      "module": "CommonJS"
+    }
+  },
+  "references": [
+    { "path": "./tsconfig.node.json" }
+  ]
 }

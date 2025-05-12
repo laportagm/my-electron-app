@@ -2,43 +2,62 @@
   "name": "my-electron-app",
   "version": "1.0.0",
   "private": true,
-  "description": "",
+  "description": "Brain Anatomy Visualization Application with Local LLM",
   "author": "",
   "license": "ISC",
-  "main": "dist/main/main.js",
+  "type": "module",
+  "main": "dist/main/main.cjs",
   "scripts": {
-    "dev:renderer": "vite",
+    "dev:renderer": "vite --port 5173",
     "dev:electron": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "prebuild": "chmod +x ./build-prep.sh && ./build-prep.sh",
     "build:renderer": "vite build",
-    "build:electron": "tsc",
-    "build": "npm run build:renderer && npm run build:electron && electron-builder",
+    "build:electron": "tsc -p tsconfig.json --outDir dist/main-es && tsc-esm-fix --target='dist/main-es/**/*.js' && node scripts/convert-to-cjs.js",
+    "build:preload": "tsc -p tsconfig.preload.json",
+    "build": "npm run prebuild && npm run build:renderer && npm run build:electron && npm run build:preload && electron-builder",
+    "build:mac": "npm run prebuild && npm run build:renderer && npm run build:electron && npm run build:preload && electron-builder --mac",
+    "build:win": "npm run prebuild && npm run build:renderer && npm run build:electron && npm run build:preload && electron-builder --win",
+    "build:linux": "npm run prebuild && npm run build:renderer && npm run build:electron && npm run build:preload && electron-builder --linux",
+    "build:prototype": "chmod +x ./build-prototype.sh && ./build-prototype.sh",
     "start": "cross-env NODE_ENV=production electron .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "db:init": "ts-node scripts/init-database.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "electron-builder install-app-deps && npm install -D tsc-esm-fix"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.7",
-    "@react-three/fiber": "^9.1.2",
+    "@react-three/fiber": "^8.15.19",
     "dotenv": "^16.5.0",
     "draco": "^0.0.1",
     "electron-log": "^5.4.0",
     "electron-store": "^10.0.1",
+    "electron-updater": "^6.1.7",
+    "leva": "^0.10.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.508.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^9.1.0",
     "react-router-dom": "^6.30.0",
-    "three": "^0.176.0",
+    "remark-gfm": "^4.0.1",
+    "three": "0.160.0",
     "winston": "^3.17.0",
     "zustand": "^5.0.4"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
+    "@testing-library/react": "^14.2.1",
+    "@types/better-sqlite3": "^7.6.9",
     "@types/lodash": "^4.17.16",
     "@types/node": "^22.15.15",
-    "@types/react": "^19.1.3",
-    "@types/react-dom": "^19.1.3",
+    "@types/react": "^18.2.52",
+    "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.4.16",
     "concurrently": "^9.1.2",
@@ -46,16 +65,20 @@
     "electron": "^30.5.1",
     "electron-builder": "^26.0.12",
     "jest": "^29.7.0",
+    "node-llama-cpp": "^3.7.0",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.3",
     "ts-jest": "^29.3.2",
+    "tsc-esm-fix": "^3.1.2",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
+    "vite-plugin-electron-renderer": "^0.14.5",
     "vitest": "^3.1.3",
     "wait-on": "^8.0.3"
   },
   "build": {
-    "appId": "com.example.myapp",
+    "appId": "com.example.brainanatomyapp",
+    "productName": "Brain Anatomy Visualizer",
     "directories": {
       "output": "release"
     },
@@ -63,6 +86,33 @@
       "dist/**/*",
       "node_modules/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "public/assets/models",
+        "to": "assets/models",
+        "filter": [
+          "**/*.glb"
+        ]
+      },
+      {
+        "from": "public/draco",
+        "to": "draco"
+      },
+      {
+        "from": "resources/llm-models",
+        "to": "llm-models",
+        "filter": [
+          "**/*.gguf"
+        ]
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "",
+        "repo": ""
+      }
     ]
   }
 }
