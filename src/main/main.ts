@@ -14,7 +14,9 @@ async function createWindow(): Promise<void> {
       webPreferences: {
         preload: path.join(__dirname, 'preload/preload.js'),
         contextIsolation: true,
-        nodeIntegration: false
+        nodeIntegration: true,
+        sandbox: false,
+        webSecurity: process.env.NODE_ENV === 'production'
       }
     });
 

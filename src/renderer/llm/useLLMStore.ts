@@ -1,35 +1,39 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import electronApi from '../electron';
 
-// Use contextBridge for accessing Electron APIs from renderer
+// Type definitions for Electron API
+interface ElectronAPI {
+  getPath: (name: string) => Promise<string>;
+  isPackaged: boolean;
+
+  // File system methods
+  readDir: (path: string) => Promise<string[]>;
+  readFile: (path: string) => Promise<string>;
+  writeFile: (path: string, data: string) => Promise<boolean>;
+
+  // LLM methods
+  downloadModel: (url: string, filename: string) => Promise<{success: boolean, path: string, alreadyExists: boolean}>;
+
+  // LLM IPC methods
+  on: (channel: string, callback: (...args: any[]) => void) => (() => void) | undefined;
+
+  // LLM main process methods
+  llm: {
+    loadModel: (modelName: string, systemPrompt: string) => Promise<{success: boolean, error?: string}>;
+    isLoaded: () => Promise<boolean>;
+    getAvailableModels: () => Promise<string[]>;
+    generate: (prompt: string) => Promise<{success: boolean, response?: string, error?: string}>;
+    resetChat: (systemPrompt: string) => Promise<{success: boolean, error?: string}>;
+  };
+
+  log: (level: string, message: string) => void;
+}
+
+// Declare global window interface for TypeScript
 declare global {
   interface Window {
-    electron: {
-      getPath: (name: string) => Promise<string>;
-      isPackaged: boolean;
-
-      // File system methods
-      readDir: (path: string) => Promise<string[]>;
-      readFile: (path: string) => Promise<string>;
-      writeFile: (path: string, data: string) => Promise<boolean>;
-
-      // LLM methods
-      downloadModel: (url: string, filename: string) => Promise<{success: boolean, path: string, alreadyExists: boolean}>;
-
-      // LLM IPC methods
-      on: (channel: string, callback: (...args: any[]) => void) => (() => void) | undefined;
-
-      // LLM main process methods
-      llm: {
-        loadModel: (modelName: string, systemPrompt: string) => Promise<{success: boolean, error?: string}>;
-        isLoaded: () => Promise<boolean>;
-        getAvailableModels: () => Promise<string[]>;
-        generate: (prompt: string) => Promise<{success: boolean, response?: string, error?: string}>;
-        resetChat: (systemPrompt: string) => Promise<{success: boolean, error?: string}>;
-      };
-
-      log: (level: string, message: string) => void;
-    };
+    electron: ElectronAPI;
   }
 }
 
@@ -71,9 +75,9 @@ interface LLMState {
   downloadModelFile: (url: string, filename: string) => Promise<boolean>;
 }
 
-// Function to check if window.electron is available
+// Function to check if Electron API is available
 const isElectronAvailable = () => {
-  return typeof window !== 'undefined' && window.electron !== undefined;
+  return electronApi !== undefined;
 };
 
 // Brain anatomy system prompt
@@ -94,17 +98,17 @@ export const useLLMStore = create<LLMState>()(
     (set, get) => {
       // Set up event listeners for download progress
       if (isElectronAvailable()) {
-        window.electron.on('llm:download-progress', (data) => {
+        electronApi.on('llm:download-progress', (data) => {
           set({ downloadProgress: data });
         });
 
-        window.electron.on('llm:download-complete', () => {
+        electronApi.on('llm:download-complete', () => {
           set({ downloadProgress: null });
           // Refresh available models
           get().initialize();
         });
 
-        window.electron.on('llm:download-error', () => {
+        electronApi.on('llm:download-error', () => {
           set({ downloadProgress: null });
         });
       }
@@ -130,12 +134,12 @@ export const useLLMStore = create<LLMState>()(
             }
 
             // Get available models from main process
-            const models = await window.electron.llm.getAvailableModels();
+            const models = await electronApi.llm.getAvailableModels();
             set({ availableModels: models });
             console.log(`Found ${models.length} models`);
 
             // Check if model is already loaded
-            const isModelLoaded = await window.electron.llm.isLoaded();
+            const isModelLoaded = await electronApi.llm.isLoaded();
             set({ isLoaded: isModelLoaded });
 
             // Auto-load the first model if available and not already loaded
@@ -171,7 +175,7 @@ export const useLLMStore = create<LLMState>()(
 
           try {
             // Load the model using the main process
-            const result = await window.electron.llm.loadModel(name, systemPrompt);
+            const result = await electronApi.llm.loadModel(name, systemPrompt);
 
             if (result.success) {
               set({
@@ -205,7 +209,7 @@ export const useLLMStore = create<LLMState>()(
 
           // Reset the chat session with the new prompt if model is loaded
           if (get().isLoaded && isElectronAvailable()) {
-            window.electron.llm.resetChat(prompt)
+            electronApi.llm.resetChat(prompt)
               .then(result => {
                 if (!result.success) {
                   console.error('Failed to reset chat session:', result.error);
@@ -230,7 +234,7 @@ export const useLLMStore = create<LLMState>()(
 
           // Reset the chat session with the same prompt if model is loaded
           if (get().isLoaded && isElectronAvailable()) {
-            window.electron.llm.resetChat(get().systemPrompt)
+            electronApi.llm.resetChat(get().systemPrompt)
               .then(result => {
                 if (!result.success) {
                   console.error('Failed to reset chat session:', result.error);
@@ -260,7 +264,7 @@ export const useLLMStore = create<LLMState>()(
 
             // Generate response using the main process
             console.log('Generating response...');
-            const result = await window.electron.llm.generate(prompt);
+            const result = await electronApi.llm.generate(prompt);
 
             if (result.success && result.response) {
               console.log('Response generated successfully');
@@ -288,7 +292,7 @@ export const useLLMStore = create<LLMState>()(
             set({ downloadProgress: { filename, progress: 0, receivedBytes: 0, totalBytes: 0 } });
 
             // Call the main process to download the model
-            const result = await window.electron.downloadModel(url, filename);
+            const result = await electronApi.downloadModel(url, filename);
 
             if (result.success) {
               // If it was already downloaded, we still need to manually remove the progress indicator

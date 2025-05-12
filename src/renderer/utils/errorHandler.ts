@@ -28,11 +28,15 @@ export function logError(error: Error, source: ErrorSource = ErrorSource.UNKNOWN
   );
   
   // Attempt to log to main process if available
-  // Check if electron API is available on window
-  const electronWindow = window as any;
-  if (electronWindow.electron?.sendError) {
-    electronWindow.electron.sendError(error.message, error.stack);
-  }
+  // Import the Electron API
+  import('../electron').then(module => {
+    const electronApi = module.default;
+    if (electronApi?.sendError) {
+      electronApi.sendError(error.message, error.stack);
+    }
+  }).catch(err => {
+    console.error('Error importing electron module:', err);
+  });
 }
 
 // Handle error by logging and storing in app state

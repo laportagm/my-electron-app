@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 import react from '@vitejs/plugin-react'
 import electron from 'vite-plugin-electron-renderer'
+import { builtinModules } from 'module'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -43,7 +44,10 @@ export default defineConfig({
     react(),
     electron({
       // Enables NodeJS API in renderer process
-      renderer: {}
+      renderer: {
+        // Fix for __dirname not defined
+        nodeIntegration: true,
+      }
     })
   ],
   css: {
@@ -51,7 +55,12 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'three', 'react-markdown', 'remark-gfm'],
-    exclude: ['better-sqlite3', 'node-llama-cpp']
+    exclude: [
+      'better-sqlite3',
+      'node-llama-cpp',
+      'electron',
+      ...builtinModules.flatMap(m => [m, `node:${m}`]),
+    ]
   },
   server: {
     host: '127.0.0.1',
