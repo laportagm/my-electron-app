@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "leetcode": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@jinzcdev/leetcode-mcp-server"
+      ],
+      "env": {
+        "LEETCODE_SITE": "global"
+      }
+    },
+    "claude-code": {
+      "type": "stdio",
+      "command": "claude-code-mcp",
+      "args": [],
+      "env": {}
+    },
+    "code-analysis": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "--directory",
+        "./tools/code-analysis-mcp",
+        "run",
+        "code_analysis.py"
+      ],
+      "env": {}
+    }
+  }
+}
