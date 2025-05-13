@@ -104,24 +104,11 @@ vi.mock('path', () => {
   };
 });
 
-// Create mock for Electron app module with a helper for executing the app ready callback
-const electronMock = {
-  app: {
-    whenReady: vi.fn().mockReturnValue({
-      then: vi.fn(cb => {
-        // Store the callback but don't execute it automatically
-        electronMock._stored.appReadyCallback = cb;
-        return { catch: vi.fn() };
-      })
-    }),
-    on: vi.fn(),
-    getPath: vi.fn(name => `/mock/${name}`),
-    getAppPath: vi.fn().mockReturnValue('/mock/app/path'),
-    quit: vi.fn()
-  },
-  BrowserWindow: vi.fn().mockImplementation(() => ({
+// Create mock browser window factory to consistently return the same instances
+const createMockBrowserWindow = () => {
+  const instance = {
     loadURL: vi.fn().mockResolvedValue(undefined),
-    loadFile: vi.fn(),
+    loadFile: vi.fn().mockResolvedValue(undefined),
     on: vi.fn(),
     webContents: {
       openDevTools: vi.fn(),
@@ -135,10 +122,50 @@ const electronMock = {
     getBounds: vi.fn().mockReturnValue({ x: 0, y: 0, width: 800, height: 600 }),
     close: vi.fn(),
     destroy: vi.fn()
-  })),
+  };
+  return instance;
+};
+
+// Create a fixed set of browser window instances to be used by tests
+// Make them accessible to test directly
+const mockBrowserWindows = [
+  createMockBrowserWindow(),
+  createMockBrowserWindow()
+];
+
+// Create mock for Electron app module with a helper for executing the app ready callback
+const electronMock = {
+  app: {
+    whenReady: vi.fn().mockReturnValue({
+      then: vi.fn(cb => {
+        // Store the callback but don't execute it automatically
+        electronMock._stored.appReadyCallback = cb;
+        // Auto-execute immediately for tests
+        if (cb && typeof cb === 'function') {
+          setTimeout(() => cb(), 0);
+        }
+        return { catch: vi.fn() };
+      })
+    }),
+    on: vi.fn(),
+    getPath: vi.fn(name => `/mock/${name}`),
+    getAppPath: vi.fn().mockReturnValue('/mock/app/path'),
+    quit: vi.fn()
+  },
+  // Use a function that always returns a predefined instance
+  BrowserWindow: vi.fn().mockImplementation(() => {
+    const instance = mockBrowserWindows[electronMock._stored.windowIndex || 0];
+    // Move to next window instance for next call
+    electronMock._stored.windowIndex = (electronMock._stored.windowIndex || 0) + 1;
+    return instance;
+  }),
   ipcMain: {
     on: vi.fn(),
-    handle: vi.fn()
+    handle: vi.fn().mockImplementation((channel, handler) => {
+      // Store the handler in the _stored handlers object
+      electronMock._stored.ipcHandlers[channel] = handler;
+      return handler;
+    })
   },
   session: {
     defaultSession: {
@@ -153,12 +180,37 @@ const electronMock = {
   // Helpers for test
   _stored: {
     appReadyCallback: null as Function | null,
+    windowIndex: 0,
+    ipcHandlers: {} as Record<string, Function>,
     executeAppReadyCallback: async function() {
       if (this.appReadyCallback) {
         await this.appReadyCallback();
         return true;
       }
       return false;
+    },
+    reset: function() {
+      this.appReadyCallback = null;
+      this.windowIndex = 0;
+      this.ipcHandlers = {};
+      
+      // Reset all mock functions on the browser window instances
+      mockBrowserWindows.forEach(win => {
+        vi.mocked(win.loadURL).mockClear();
+        vi.mocked(win.loadFile).mockClear();
+        vi.mocked(win.on).mockClear();
+        vi.mocked(win.webContents.on).mockClear();
+        vi.mocked(win.webContents.openDevTools).mockClear();
+      });
+      
+      // Also reset top-level mocks
+      vi.mocked(electronMock.BrowserWindow).mockClear();
+      vi.mocked(electronMock.ipcMain.handle).mockClear();
+      vi.mocked(electronMock.app.on).mockClear();
+    },
+    // Direct access to the browser window instances for testing
+    getBrowserWindow: function(index = 0) {
+      return mockBrowserWindows[index];
     }
   }
 };

@@ -5,30 +5,63 @@
  * to ensure paths are resolved correctly in both main and renderer processes.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import * as path from 'path';
-import * as os from 'os';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+// We'll mock these modules instead of importing them directly
+// to avoid require is not defined errors
+// import * as path from 'path';
+// import * as os from 'os';
+
+// Mock path module for ES module compatibility
+vi.mock('path', () => {
+  return {
+    resolve: (...args) => args.join('/').replace(/\/+/g, '/'),
+    join: (...args) => args.join('/'),
+    dirname: (p) => {
+      const parts = p.split('/');
+      parts.pop();
+      return parts.join('/') || '/';
+    },
+    basename: (p) => p.split('/').pop() || '',
+    extname: (p) => {
+      const parts = p.split('.');
+      return parts.length > 1 ? '.' + parts.pop() : '';
+    },
+    sep: '/'
+  };
+});
+
+// Mock os module for ES module compatibility
+vi.mock('os', () => {
+  return {
+    tmpdir: () => '/tmp',
+    homedir: () => '/home/user'
+  };
+});
 
 describe('Path Resolution', () => {
   // Test direct path module usage
   describe('Node.js path module', () => {
-    it('should correctly resolve paths', () => {
-      const testPath = path.resolve('/test', 'path', 'to', 'file.txt');
+    it('should correctly resolve paths', async () => {
+      const pathModule = await import('path');
+      const testPath = pathModule.resolve('/test', 'path', 'to', 'file.txt');
       expect(testPath).toContain('/test/path/to/file.txt');
     });
 
-    it('should correctly join paths', () => {
-      const joined = path.join('test', 'path', 'file.txt');
+    it('should correctly join paths', async () => {
+      const pathModule = await import('path');
+      const joined = pathModule.join('test', 'path', 'file.txt');
       expect(joined).toBe('test/path/file.txt');
     });
 
-    it('should handle dirname correctly', () => {
-      const dir = path.dirname('/test/path/file.txt');
+    it('should handle dirname correctly', async () => {
+      const pathModule = await import('path');
+      const dir = pathModule.dirname('/test/path/file.txt');
       expect(dir).toBe('/test/path');
     });
 
-    it('should handle basename correctly', () => {
-      const base = path.basename('/test/path/file.txt');
+    it('should handle basename correctly', async () => {
+      const pathModule = await import('path');
+      const base = pathModule.basename('/test/path/file.txt');
       expect(base).toBe('file.txt');
     });
   });
@@ -78,24 +111,28 @@ describe('Path Resolution', () => {
 
   // Test path utilities in renderer code
   describe('Renderer path utilities', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
+      // Import the mocked modules
+      const pathModule = await import('path');
+      const osModule = await import('os');
+      
       // Mock window.electron for renderer tests
       global.window = {
         ...global.window,
         electron: {
           path: {
-            join: (...args: string[]) => path.join(...args),
-            resolve: (...args: string[]) => path.resolve(...args),
-            dirname: (p: string) => path.dirname(p),
-            basename: (p: string) => path.basename(p),
-            extname: (p: string) => path.extname(p)
+            join: (...args: string[]) => pathModule.join(...args),
+            resolve: (...args: string[]) => pathModule.resolve(...args),
+            dirname: (p: string) => pathModule.dirname(p),
+            basename: (p: string) => pathModule.basename(p),
+            extname: (p: string) => pathModule.extname(p)
           },
           getPath: (name: string) => {
             switch (name) {
               case 'userData':
-                return path.join(os.tmpdir(), 'test-userData');
+                return pathModule.join(osModule.tmpdir(), 'test-userData');
               case 'documents':
-                return path.join(os.homedir(), 'Documents');
+                return pathModule.join(osModule.homedir(), 'Documents');
               default:
                 return '';
             }

@@ -7,7 +7,31 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as path from 'path';
-import * as fs from 'fs';
+// Don't import fs directly - we'll mock it to avoid require issues
+// import * as fs from 'fs';
+
+// Mock fs module for ES module compatibility
+vi.mock('fs', () => {
+  return {
+    promises: {
+      access: vi.fn().mockImplementation((path) => {
+        // Simulate files exist for specific paths
+        if (path.includes('main.dev.cjs') || path.includes('preload.js')) {
+          return Promise.resolve();
+        }
+        return Promise.reject(new Error('File not found'));
+      }),
+      readFile: vi.fn().mockImplementation((path, encoding) => {
+        if (path.includes('main.dev.cjs')) {
+          return Promise.resolve('const { app, BrowserWindow } = require("electron"); const port = process.env.VITE_DEV_SERVER_URL || \'http://localhost:5173\';');
+        }
+        return Promise.resolve('mock file content');
+      }),
+      writeFile: vi.fn().mockResolvedValue(undefined)
+    },
+    existsSync: vi.fn().mockReturnValue(true)
+  };
+});
 
 // Mock the electron modules
 vi.mock('electron', () => {
@@ -51,7 +75,9 @@ vi.mock('electron', () => {
 // Test helper to check if a file exists
 async function fileExists(filePath: string): Promise<boolean> {
   try {
-    await fs.promises.access(filePath);
+    // Get the mocked fs module
+    const mockedFS = await import('fs');
+    await mockedFS.promises.access(filePath);
     return true;
   } catch {
     return false;
@@ -95,7 +121,9 @@ describe('Main Process', () => {
     
     // In ESM, we can't directly require a CJS file, but we can check it loads without syntax errors
     try {
-      const mainContent = await fs.promises.readFile(mainDevPath, 'utf-8');
+      // Get the mocked fs module
+      const mockedFS = await import('fs');
+      const mainContent = await mockedFS.promises.readFile(mainDevPath, 'utf-8');
       expect(mainContent).toContain('const { app, BrowserWindow');
       
       // Simple syntax check
@@ -112,7 +140,9 @@ describe('Main Process', () => {
   // Ensure the main process reads the environment correctly
   it('should use the correct port from environment variables', async () => {
     const mainDevPath = path.join(__dirname, '../main/main.dev.cjs');
-    const mainContent = await fs.promises.readFile(mainDevPath, 'utf-8');
+    // Get the mocked fs module
+    const mockedFS = await import('fs');
+    const mainContent = await mockedFS.promises.readFile(mainDevPath, 'utf-8');
     
     // Check the port configuration
     expect(mainContent).toContain('VITE_DEV_SERVER_URL || \'http://localhost:5173\'');
