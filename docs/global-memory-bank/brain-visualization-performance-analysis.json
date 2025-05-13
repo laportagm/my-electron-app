@@ -1,0 +1,97 @@
+{
+  "title": "Brain Visualization Codebase Performance Analysis",
+  "date": "2025-05-12",
+  "sections": [
+    {
+      "title": "Overview",
+      "content": "This document contains an analysis of performance bottlenecks in the brain visualization application, focusing on model loading, rendering performance, state management, and component design patterns."
+    },
+    {
+      "title": "Zustand Store Architecture Analysis",
+      "content": "The current Zustand store implementation (useAppStore.ts) presents several performance challenges.",
+      "details": {
+        "strengths": [
+          "Uses slice pattern to organize state into logical domains (ModelsSlice, UiSlice, etc.)",
+          "Employs specialized selectors for better component performance",
+          "Has memory optimization like clearCache to help with resource management",
+          "Uses shallow comparison for object equality in some cases"
+        ],
+        "weaknesses": [
+          "State Structure Issues: Combines UI state with large 3D model references",
+          "Circular Reference Risk: Store references to THREE.js objects directly",
+          "Inefficient Selector Pattern: Some selectors return new object references, triggering re-renders",
+          "Non-optimized Action Functions: Many state updates are not batch-optimized",
+          "Missing Memoization: Some action function references are recreated on each render",
+          "Incomplete Cleanup: Some THREE.js objects may not be properly cleaned/disposed",
+          "React 18 Compatibility Issues: Doesn't properly implement getSnapshot caching"
+        ]
+      }
+    },
+    {
+      "title": "React Component Rendering Bottlenecks",
+      "content": "The core components contain several rendering bottlenecks.",
+      "componentIssues": {
+        "NeuroScene.tsx": [
+          "Renders the entire 3D scene on any state change",
+          "Canvas re-creates the entire scene graph on minor updates",
+          "Multiple nested components creating memory pressure",
+          "Inefficient context propagation to child components",
+          "Usage of hooks inside render functions creating render loops"
+        ],
+        "BrainModel.tsx": [
+          "Model loading integrated directly in component lifecycle",
+          "Loading state affects parent component re-rendering",
+          "Inefficient model reference handling",
+          "Potential memory leaks in THREE.js object handling",
+          "Missing proper model lifecycle management"
+        ],
+        "performanceMetrics": [
+          "Redundant model loads for the same model ID",
+          "Component tree depth impacts render performance",
+          "Excessive prop drilling causing unnecessary renders",
+          "Missing React 18 concurrent rendering optimizations"
+        ]
+      }
+    },
+    {
+      "title": "3D Model Loading Pipeline",
+      "content": "The model loading pipeline has several critical bottlenecks.",
+      "issues": {
+        "loadModel.ts": [
+          "Inefficient path resolution with multiple fetch attempts",
+          "No proper LOD (Level of Detail) implementation",
+          "Attempts to load all model variations synchronously",
+          "Debug flags adding overhead in production builds",
+          "Missing model geometry simplification",
+          "No texture compression optimization",
+          "Overly defensive error handling causing performance degradation"
+        ],
+        "assetManagement": [
+          "Inefficient cache implementation",
+          "Model verification delays user experience",
+          "Draco decoder loading is unoptimized",
+          "Material processing during scene rendering",
+          "Duplicated asset resolution logic",
+          "No proper asset preloading strategy"
+        ],
+        "dependencyManagement": [
+          "THREE.js instantiation and setup happens on render",
+          "Memory management of 3D resources is inconsistent",
+          "React fiber hooks not optimized for 3D context",
+          "Model management happens in component space rather than dedicated service"
+        ]
+      }
+    },
+    {
+      "title": "Conclusion",
+      "content": "The primary performance bottlenecks in the application are:",
+      "keyBottlenecks": [
+        "State Management: The Zustand store architecture needs optimization for React 18",
+        "Rendering Pipeline: Component rendering cycles need better memoization",
+        "3D Asset Management: The model loading pipeline needs proper LOD implementation",
+        "Memory Management: THREE.js objects need better lifecycle handling",
+        "React Integration: Better separation of 3D and React rendering concerns needed"
+      ]
+    }
+  ]
+}

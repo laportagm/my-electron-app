@@ -198,19 +198,29 @@ export const useAppStore = create<AppState>()(
         // Only update if the reference actually changes to prevent loops
         const state = get();
         if (ref !== state.currentModelRef) {
-          set({ currentModelRef: ref });
+          // Use requestAnimationFrame to break synchronous updates
+          // that could lead to circular dependency loops
+          requestAnimationFrame(() => {
+            set({ currentModelRef: ref });
+          });
         }
       },
       setOrbitControlsRef: (ref) => {
         const state = get();
         if (ref !== state.orbitControlsRef) {
-          set({ orbitControlsRef: ref });
+          // Use requestAnimationFrame to break synchronous updates
+          requestAnimationFrame(() => {
+            set({ orbitControlsRef: ref });
+          });
         }
       },
       setCameraRef: (ref) => {
         const state = get();
         if (ref !== state.cameraRef) {
-          set({ cameraRef: ref });
+          // Use requestAnimationFrame to break synchronous updates
+          requestAnimationFrame(() => {
+            set({ cameraRef: ref });
+          });
         }
       },
       

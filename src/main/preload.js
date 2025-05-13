@@ -1,28 +1,46 @@
-var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
-    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
-        if (ar || !(i in from)) {
-            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
-            ar[i] = from[i];
-        }
-    }
-    return to.concat(ar || Array.prototype.slice.call(from));
-};
-var _a = require('electron'), contextBridge = _a.contextBridge, ipcRenderer = _a.ipcRenderer;
+// Use require instead of import for Electron to work with CommonJS
+const { contextBridge, ipcRenderer } = require('electron');
+const path = require('path');
+const os = require('os');
+const fs = require('fs');
+// For debugging
+console.log('Preload script executed');
+// Expose a limited subset of electron and Node.js APIs to the renderer
 contextBridge.exposeInMainWorld('electron', {
-    send: function (channel) {
-        var args = [];
-        for (var _i = 1; _i < arguments.length; _i++) {
-            args[_i - 1] = arguments[_i];
-        }
-        return ipcRenderer.send.apply(ipcRenderer, __spreadArray([channel], args, false));
+    // IPC communication
+    send: (channel, ...args) => {
+        ipcRenderer.send(channel, ...args);
     },
-    on: function (channel, listener) {
-        return ipcRenderer.on(channel, function (event) {
-            var args = [];
-            for (var _i = 1; _i < arguments.length; _i++) {
-                args[_i - 1] = arguments[_i];
-            }
-            return listener.apply(void 0, args);
-        });
+    on: (channel, listener) => {
+        // Use our own type definition to avoid TypeScript errors
+        ipcRenderer.on(channel, (_event, ...args) => listener(...args));
+    },
+    // Node.js path module (safe subset)
+    path: {
+        join: (...paths) => path.join(...paths),
+        resolve: (...paths) => path.resolve(...paths),
+        dirname: (p) => path.dirname(p),
+        basename: (p, ext) => path.basename(p, ext),
+        extname: (p) => path.extname(p),
+        sep: path.sep
+    },
+    // File system access (limited subset)
+    fs: {
+        existsSync: (p) => fs.existsSync(p)
+    },
+    // OS info (safe subset)
+    os: {
+        platform: () => os.platform(),
+        homedir: () => os.homedir(),
+        tmpdir: () => os.tmpdir()
     }
+});
+// Also expose direct path methods to window.path (for compatibility with code expecting Node.js path)
+contextBridge.exposeInMainWorld('path', {
+    join: (...args) => path.join(...args),
+    resolve: (...args) => path.resolve(...args),
+    dirname: (p) => path.dirname(p),
+    basename: (p, ext) => path.basename(p, ext),
+    extname: (p) => path.extname(p),
+    sep: path.sep
 });

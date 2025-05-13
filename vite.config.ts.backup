@@ -1,0 +1,114 @@
+import { defineConfig } from 'vite'
+import { resolve } from 'path'
+import react from '@vitejs/plugin-react'
+import electron from 'vite-plugin-electron-renderer'
+import { builtinModules } from 'module'
+
+// Rollup native module workaround
+// This ensures Rollup doesn't try to load platform-specific native modules
+process.env.ROLLUP_NATIVE_MODULES = 'false'
+
+// https://vitejs.dev/config/
+// Log environment variables for debugging
+console.log('Environment:', {
+  NODE_ENV: process.env.NODE_ENV,
+  isDev: process.env.NODE_ENV === 'development',
+  isProd: process.env.NODE_ENV === 'production',
+  dirname: __dirname,
+});
+
+export default defineConfig({
+  root: resolve(__dirname, 'src/renderer'),
+  base: './',
+  publicDir: resolve(__dirname, 'public'),
+  build: {
+    outDir: resolve(__dirname, 'dist/renderer'),
+    emptyOutDir: true,
+    minify: process.env.NODE_ENV === 'production',
+    sourcemap: process.env.NODE_ENV !== 'production',
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          three: ['three', '@react-three/drei', '@react-three/fiber'],
+          ui: ['lucide-react'],
+          markdown: ['react-markdown', 'remark-gfm']
+        }
+      },
+      external: [
+        'node-llama-cpp',
+        'better-sqlite3',
+        'electron',
+        'fs',
+        'path',
+        'os',
+        'module',
+        // Prevent Rollup from trying to bundle native modules
+        '@rollup/rollup-darwin-x64',
+        '@rollup/rollup-darwin-arm64',
+        '@rollup/rollup-linux-x64-gnu',
+        '@rollup/rollup-linux-arm64-gnu',
+        '@rollup/rollup-win32-x64-msvc',
+        '@rollup/rollup-win32-arm64-msvc'
+      ]
+    }
+  },
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src/renderer'),
+      '@renderer': resolve(__dirname, 'src/renderer'),
+      '@main': resolve(__dirname, 'src/main'),
+      '@shared': resolve(__dirname, 'src/shared'),
+      '@llm': resolve(__dirname, 'src/renderer/llm'),
+      '@database': resolve(__dirname, 'src/main/database')
+    },
+    // Add .js extensions for proper ESM imports
+    extensions: ['.js', '.ts', '.jsx', '.tsx', '.json']
+  },
+  plugins: [
+    react(),
+    electron({
+      // Enables NodeJS API in renderer process
+      renderer: {
+        // Fix for __dirname not defined
+        nodeIntegration: true,
+      }
+    })
+  ],
+  // Handle Node.js built-in modules
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+    '__dirname': JSON.stringify(__dirname),
+    // Add globals that might be needed
+    'global': 'globalThis',
+  },
+  css: {
+    postcss: resolve(__dirname, 'postcss.config.cjs'),
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'three', 'react-markdown', 'remark-gfm'],
+    exclude: [
+      'better-sqlite3',
+      'node-llama-cpp',
+      'electron',
+      ...builtinModules.flatMap(m => [m, `node:${m}`]),
+    ],
+    // Disable dependency optimization for problematic packages
+    esbuildOptions: {
+      mainFields: ['module', 'main'],
+      resolveExtensions: ['.js', '.jsx', '.ts', '.tsx'],
+      loader: {
+        '.js': 'jsx',
+      },
+    }
+  },
+  server: {
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: false, // Allow fallback to another port if 5173 is in use
+    hmr: {
+      overlay: true,
+    },
+  }
+})

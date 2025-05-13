@@ -22,8 +22,8 @@
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "noUnusedLocals": false, // Turned off to allow for unused imports in tests
-    "noUnusedParameters": false, // Turned off to allow for unused parameters in tests
+    "noUnusedLocals": false, 
+    "noUnusedParameters": false, 
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",

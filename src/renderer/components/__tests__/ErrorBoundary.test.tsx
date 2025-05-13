@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import ErrorBoundary, { SimpleErrorBoundary } from '../ErrorBoundary';
 
 // Component that throws an error for testing purposes

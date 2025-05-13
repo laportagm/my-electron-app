@@ -2,8 +2,37 @@
 
 // For main process
 import * as dotenv from 'dotenv';
-import path from 'path';
-import { app } from 'electron';
+// Import based on environment to handle both main and renderer processes
+let path: any;
+let electron: any;
+let app: any;
+
+// Function to initialize modules without top-level await
+function initModules() {
+  if (typeof process !== 'undefined' && process.type !== 'renderer') {
+    try {
+      // In the main process, use require for Node.js modules
+      const pathModule = require('path');
+      path = pathModule;
+
+      const electronModule = require('electron');
+      electron = electronModule;
+      app = electron.app;
+    } catch (e) {
+      console.error('Failed to load Node.js modules in main process:', e);
+      // Fallback to browser-compatible versions
+      path = { join: (...args: string[]) => args.join('/') };
+      app = { getPath: () => '' };
+    }
+  } else {
+    // In the renderer process, don't try to access node modules directly
+    path = { join: (...args: string[]) => args.join('/') };
+    app = { getPath: () => '' };
+  }
+}
+
+// Initialize modules
+initModules();
 
 // Load environment variables based on NODE_ENV
 const environment = process.env.NODE_ENV || 'development';
@@ -11,8 +40,8 @@ dotenv.config({ path: `.env.${environment}` });
 
 export const config = {
   apiUrl: process.env.API_URL || 'http://localhost:5173',
-  modelStoragePath: process.env.MODEL_STORAGE_PATH || 
-    path.join(app.getPath('userData'), 'models'),
+  modelStoragePath: process.env.MODEL_STORAGE_PATH ||
+    (app.getPath ? path.join(app.getPath('userData'), 'models') : 'models'),
   debugMode: process.env.DEBUG_MODE === 'true'
 };
 

@@ -1,21 +1,24 @@
 import React, { useCallback } from 'react';
-import { OrbitControls } from '@react-three/drei';
 import { useCamera } from '@/hooks/useCamera';
 import { useAppStore } from '@/store/useAppStore';
+import PassiveOrbitControls from './PassiveOrbitControls';
 
 /**
  * Enhanced camera controller component with orbit controls
  * and utility buttons for camera manipulation
+ *
+ * Uses PassiveOrbitControls to ensure all wheel events have { passive: true }
+ * which prevents browser warnings and improves scrolling performance
  */
 export const CameraController: React.FC = React.memo(() => {
   const { controlsRef } = useCamera();
-  
+
   return (
-    <OrbitControls 
-      ref={controlsRef} 
-      enablePan 
-      enableZoom 
-      enableRotate 
+    <PassiveOrbitControls
+      ref={controlsRef}
+      enablePan
+      enableZoom
+      enableRotate
       makeDefault
     />
   );

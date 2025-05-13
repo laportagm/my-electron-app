@@ -2,7 +2,7 @@
  * Asset Logger - Specialized logger for asset and model loading
  * Handles controlled verbosity levels to prevent console flooding
  */
-import { rendererConfig } from '@/utils/config';
+import { rendererConfig } from '../../utils/config';
 
 // Log levels:
 // - verbose: Show all logs including debug information and every path attempt

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
-import { OrbitControls, Grid, PerspectiveCamera, GizmoHelper, GizmoViewport } from '@react-three/drei'
+import { Grid, PerspectiveCamera, GizmoHelper, GizmoViewport } from '@react-three/drei'
+import PassiveOrbitControls from './camera/PassiveOrbitControls'
 import BrainModel from './BrainModel'
 import MultipleModels from './MultipleModels'
 import FallbackCube from './FallbackCube'
@@ -23,30 +24,54 @@ const CameraController = memo(function CameraController() {
   const setOrbitControlsRef = useAppStore(state => state.setOrbitControlsRef);
   const setCameraRef = useAppStore(state => state.setCameraRef);
 
-  // Memoize the effect dependencies
-  const memoizedSetOrbitControlsRef = useCallback((ref: any) => {
-    setOrbitControlsRef(ref);
-  }, [setOrbitControlsRef]);
+  // Use refs to track previous values and prevent unnecessary updates
+  const prevControlsRef = useRef<any>(null);
+  const prevCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
 
-  const memoizedSetCameraRef = useCallback((cam: THREE.PerspectiveCamera | null) => {
-    setCameraRef(cam);
-  }, [setCameraRef]);
-
+  // This effect efficiently handles both refs and avoids update loops
   useEffect(() => {
-    if (controlsRef.current) {
-      memoizedSetOrbitControlsRef(controlsRef.current);
-    }
-    if (camera instanceof THREE.PerspectiveCamera) {
-      memoizedSetCameraRef(camera);
+    // Handle orbit controls ref
+    if (controlsRef.current && controlsRef.current !== prevControlsRef.current) {
+      prevControlsRef.current = controlsRef.current;
+      // Break the synchronous cycle with requestAnimationFrame
+      const currentControls = controlsRef.current;
+      requestAnimationFrame(() => {
+        setOrbitControlsRef(currentControls);
+      });
     }
 
+    // Handle camera ref
+    if (camera instanceof THREE.PerspectiveCamera && camera !== prevCameraRef.current) {
+      prevCameraRef.current = camera;
+      // Break the synchronous cycle with requestAnimationFrame
+      const currentCamera = camera;
+      requestAnimationFrame(() => {
+        setCameraRef(currentCamera);
+      });
+    }
+
+    // Only clean up when component unmounts
     return () => {
-      memoizedSetOrbitControlsRef(null);
-      memoizedSetCameraRef(null);
-    };
-  }, [memoizedSetOrbitControlsRef, memoizedSetCameraRef, camera]);
+      // Use requestAnimationFrame to avoid cleanup during render
+      requestAnimationFrame(() => {
+        // Only clear if component is truly unmounting
+        if (!controlsRef.current && prevControlsRef.current) {
+          setOrbitControlsRef(null);
+          prevControlsRef.current = null;
+        }
 
-  return <OrbitControls ref={controlsRef} enablePan enableZoom enableRotate />;
+        // Camera might be present in React Three Fiber even after unmount,
+        // so we check if we're in an unmounting state differently
+        const unmountCheck = document.querySelector('canvas') === null;
+        if (unmountCheck && prevCameraRef.current) {
+          setCameraRef(null);
+          prevCameraRef.current = null;
+        }
+      });
+    };
+  }, [setOrbitControlsRef, setCameraRef, camera]);
+
+  return <PassiveOrbitControls ref={controlsRef} enablePan enableZoom enableRotate />;
 });
 
 // Debug Panel - extracted as separate component for better rendering isolation

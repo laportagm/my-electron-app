@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "outDir": "./temp-dev-build",
+    "rootDir": ".",
+    "sourceMap": false,
+    "baseUrl": ".",
+    "resolveJsonModule": true,
+    "paths": {
+      "@/*": ["src/renderer/*"],
+      "@renderer/*": ["src/renderer/*"],
+      "@main/*": ["src/main/*"],
+      "@shared/*": ["src/shared/*"],
+      "@llm/*": ["src/renderer/llm/*"],
+      "@database/*": ["src/main/database/*"]
+    }
+  },
+  "include": ["src/main/main.dev.ts", "src/utils/**/*"],
+  "exclude": ["node_modules"]
+}

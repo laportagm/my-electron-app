@@ -65,6 +65,17 @@ function BrainModel({ modelId }: BrainModelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Use refs to track mounted state and previous model for safe updates and cleanup
+  const isMounted = useRef(true);
+  const prevModelRef = useRef<THREE.Group | null>(null);
+
+  // Set isMounted to false when component unmounts
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   // Determine which ID to use - prop takes precedence over store
   const id = modelId || selectedId;
 
@@ -116,13 +127,23 @@ function BrainModel({ modelId }: BrainModelProps) {
     // Cleanup function to remove the model when component unmounts or ID changes
     return () => {
       setModel(null);
-      setCurrentModelRef(null);
+
+      // Use requestAnimationFrame to avoid cleanup during render
+      requestAnimationFrame(() => {
+        // Only run if component is unmounting or ID is changing
+        if (!isMounted.current) {
+          setCurrentModelRef(null);
+        }
+      });
     };
   }, [id, loadBrainModel, setCurrentModelRef]);
 
   // Update the modelRef whenever the model changes
   useEffect(() => {
-    if (modelRef.current && model) {
+    // Only update if model actually changed
+    if (modelRef.current && model && model !== prevModelRef.current) {
+      prevModelRef.current = model;
+
       // Clear any existing children first to prevent memory leaks
       if (modelRef.current) {
         while (modelRef.current.children.length > 0 && modelRef.current.children[0]) {
@@ -133,21 +154,27 @@ function BrainModel({ modelId }: BrainModelProps) {
       // Add the new model as a child
       modelRef.current.add(model);
 
-      // Update the global reference
-      setCurrentModelRef(modelRef.current);
+      // Update the global reference only once, using requestAnimationFrame to break circular dependencies
+      const ref = modelRef.current;
+      requestAnimationFrame(() => {
+        // Check if component is still mounted before updating the store
+        if (isMounted.current && ref) {
+          setCurrentModelRef(ref);
+        }
+      });
     }
-  }, [model, setCurrentModelRef]);
 
-  // Update the global reference after mount
-  useEffect(() => {
-    if (modelRef.current) {
-      setCurrentModelRef(modelRef.current);
-    }
-
+    // Cleanup function for model changes and unmounts
     return () => {
-      setCurrentModelRef(null);
+      // Use requestAnimationFrame to avoid cleanup during render
+      requestAnimationFrame(() => {
+        // Only cleanup if component is unmounting or model is changing
+        if (!isMounted.current || model !== prevModelRef.current) {
+          setCurrentModelRef(null);
+        }
+      });
     };
-  }, [setCurrentModelRef]);
+  }, [model, setCurrentModelRef]);
 
   return (
     <group ref={modelRef} name={id || 'brain-model-container'}>

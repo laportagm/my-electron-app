@@ -28,8 +28,15 @@
     "paths": {
       "@/*": ["src/renderer/*"]
     },
-    "types": ["node", "vite/client"]
+    "types": ["node", "vite/client", "electron"],
+    "typeRoots": [
+      "node_modules/@types",
+      "src/renderer/types"
+    ]
   },
-  "include": ["src/renderer/**/*"],
-  "exclude": ["node_modules", "dist", "release"]
+  "include": ["src/renderer/**/*", "src/renderer/types/**/*"],
+  "exclude": ["node_modules", "dist", "release"],
+  "files": [
+    "src/renderer/types/global.d.ts"
+  ]
 }

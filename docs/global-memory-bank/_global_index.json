@@ -1,0 +1,18 @@
+{
+  "schema": "tag_index_v1",
+  "metadata": {
+    "updatedAt": "2025-05-13T04:12:00.000Z",
+    "documentCount": 2,
+    "fullRebuild": true,
+    "context": "global"
+  },
+  "index": {
+    "ELECTRON_PATH_JOIN_FIX.md": {
+      "title": "Electron Path.join Error Fix",
+      "type": "document",
+      "tags": ["electron", "error-handling", "bug-fix"],
+      "lastModified": "2025-05-13T04:12:00.000Z",
+      "summary": "Documentation on fixing the path.join error in Electron renderer process and implementing robust error handling."
+    }
+  }
+}

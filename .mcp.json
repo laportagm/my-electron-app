@@ -1,41 +1,5 @@
 {
   "mcpServers": {
-    "leetcode": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@jinzcdev/leetcode-mcp-server"
-      ],
-      "env": {
-        "LEETCODE_SITE": "global"
-      }
-    },
-    "claude-code": {
-      "type": "stdio",
-      "command": "/opt/homebrew/bin/claude-code-mcp",
-      "args": [],
-      "env": {
-        "CLAUDE_BIN": "/opt/homebrew/bin/claude"
-      }
-    },
-    "code-analysis": {
-      "type": "stdio",
-      "command": "/opt/homebrew/bin/uv",
-      "args": [
-        "--directory",
-        "/Users/gagelaporta/my-electron-app1-2/tools/code-analysis-mcp",
-        "run",
-        "code_analysis.py"
-      ],
-      "env": {}
-    },
-    "git-mcp": {
-      "type": "stdio",
-      "command": "/opt/homebrew/bin/git-mcp-server",
-      "args": [],
-      "env": {}
-    },
     "magic-ui": {
       "type": "stdio",
       "command": "npx",

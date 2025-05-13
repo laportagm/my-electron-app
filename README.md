@@ -80,6 +80,53 @@ The AI assistant can:
 - Explain the function of different brain regions
 - Reference the currently selected 3D model
 
+## Troubleshooting
+
+### Rollup Native Module Errors
+
+If you encounter errors related to missing Rollup native modules (e.g., `@rollup/rollup-darwin-x64`), you can fix them with:
+
+```bash
+# Fix Rollup native module issues
+npm run fix:rollup
+```
+
+This is a common issue with npm's optional dependencies. The fix script:
+1. Removes node_modules and package-lock.json
+2. Clears npm cache
+3. Reinstalls dependencies with native modules disabled
+
+Alternatively, you can run these commands manually:
+```bash
+rm -rf node_modules
+rm -f package-lock.json
+npm cache clean --force
+export ROLLUP_NATIVE_MODULES=false
+npm install --no-optional
+```
+
+### Electron Path.join Error
+
+If you encounter an error like `Uncaught TypeError: path.join is not a function`, it's because Node.js APIs aren't properly exposed to the renderer process. Fix it with:
+
+```bash
+# Fix Electron path.join error
+npm run fix:path
+```
+
+When using Node.js modules like `path` in the renderer process, always use them through the Electron preload bridge:
+
+```javascript
+// ❌ DON'T do this in renderer:
+import path from 'path';
+path.join(__dirname, 'file.txt');
+
+// ✅ DO this instead:
+window.electron.path.join(__dirname, 'file.txt');
+```
+
+The preload script safely exposes these Node.js APIs in a controlled way.
+
 ## License
 
 ISC
