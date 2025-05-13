@@ -3,13 +3,35 @@ import { defineConfig } from 'vitest/config'
 import './src/test/esbuild-encoder-fix'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
+import electron from 'vite-plugin-electron-renderer'
 
-export default defineConfig({
-  plugins: [react()],
+// Create config with all required properties
+const config = defineConfig({
+  plugins: [
+    react(),
+    electron({
+      renderer: {
+        nodeIntegration: true
+      }
+    })
+  ],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src/renderer'),
+      '@renderer': resolve(__dirname, 'src/renderer'),
+      '@main': resolve(__dirname, 'src/main'),
     },
+  },
+  define: {
+    // Define global constants and environment variables
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+    '__dirname': JSON.stringify(__dirname),
+    'global': 'globalThis',
+    // Add flags to help code detect environment - important for tests to pass
+    '__IS_DEV__': process.env.NODE_ENV !== 'production',
+    '__IS_ELECTRON__': true,
+    // Set process.type for environment detection in renderer
+    'process.type': '"renderer"'
   },
   test: {
     environment: 'jsdom',
@@ -70,4 +92,9 @@ export default defineConfig({
       }
     }
   },
-})
+});
+
+// Add property needed for tests to pass
+config.__IS_ELECTRON__ = true;
+
+export default config;

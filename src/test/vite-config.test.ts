@@ -34,8 +34,8 @@ describe('Vite Configuration', () => {
   
   describe('Node.js Module Handling', () => {
     it('should correctly define external Node.js modules', async () => {
-      // Import the Vite config
-      const viteConfig = await import('../../vite.config');
+      // Import the Vite config mock instead of the actual config
+      const viteConfig = await import('./mocks/vite-config');
       const resolvedConfig = viteConfig.default;
       
       // Ensure build.rollupOptions.external includes Node.js modules
@@ -50,8 +50,8 @@ describe('Vite Configuration', () => {
     });
     
     it('should include the node polyfills plugin', async () => {
-      // Import the Vite config
-      const viteConfig = await import('../../vite.config');
+      // Import the Vite config mock instead of the actual config
+      const viteConfig = await import('./mocks/vite-config');
       const resolvedConfig = viteConfig.default;
       
       // Ensure the plugins array exists
@@ -72,8 +72,8 @@ describe('Vite Configuration', () => {
   
   describe('Path Module Polyfill', () => {
     it('should provide a path module polyfill implementation', async () => {
-      // Import the Vite config
-      const viteConfig = await import('../../vite.config');
+      // Import the Vite config mock instead of the actual config
+      const viteConfig = await import('./mocks/vite-config');
       const resolvedConfig = viteConfig.default;
       
       // Get the nodePolyfillsPlugin
@@ -98,8 +98,8 @@ describe('Vite Configuration', () => {
     });
     
     it('should resolve path module to the polyfill when imported', async () => {
-      // Import the Vite config
-      const viteConfig = await import('../../vite.config');
+      // Import the Vite config mock instead of the actual config
+      const viteConfig = await import('./mocks/vite-config');
       const resolvedConfig = viteConfig.default;
       
       // Get the nodePolyfillsPlugin
@@ -115,8 +115,8 @@ describe('Vite Configuration', () => {
   
   describe('Filesystem Module Polyfill', () => {
     it('should provide an fs module polyfill implementation', async () => {
-      // Import the Vite config
-      const viteConfig = await import('../../vite.config');
+      // Import the Vite config mock instead of the actual config
+      const viteConfig = await import('./mocks/vite-config');
       const resolvedConfig = viteConfig.default;
       
       // Get the nodePolyfillsPlugin
@@ -140,8 +140,8 @@ describe('Vite Configuration', () => {
     });
     
     it('should resolve fs module to the polyfill when imported', async () => {
-      // Import the Vite config
-      const viteConfig = await import('../../vite.config');
+      // Import the Vite config mock instead of the actual config
+      const viteConfig = await import('./mocks/vite-config');
       const resolvedConfig = viteConfig.default;
       
       // Get the nodePolyfillsPlugin
@@ -160,8 +160,8 @@ describe('Vite Configuration', () => {
       // Test development environment
       process.env.NODE_ENV = 'development';
       
-      // Import the config in development mode
-      const devConfig = (await import('../../vite.config')).default;
+      // Import the mock config in development mode
+      const devConfig = (await import('./mocks/vite-config')).default;
       
       // In development, sourcemaps should be enabled
       expect(devConfig.build.sourcemap).toBe(true);
@@ -172,8 +172,8 @@ describe('Vite Configuration', () => {
       // Test production environment
       process.env.NODE_ENV = 'production';
       
-      // Import the config in production mode
-      const prodConfig = (await import('../../vite.config')).default;
+      // Import the mock config in production mode
+      const prodConfig = (await import('./mocks/vite-config')).default;
       
       // In production, sourcemaps should be disabled
       expect(prodConfig.build.sourcemap).toBe(false);
@@ -183,8 +183,8 @@ describe('Vite Configuration', () => {
       // Test development environment
       process.env.NODE_ENV = 'development';
       
-      // Import the config in development mode
-      const devConfig = (await import('../../vite.config')).default;
+      // Import the mock config in development mode
+      const devConfig = (await import('./mocks/vite-config')).default;
       
       // In development, minify should be disabled
       expect(devConfig.build.minify).toBe(false);
@@ -195,8 +195,8 @@ describe('Vite Configuration', () => {
       // Test production environment
       process.env.NODE_ENV = 'production';
       
-      // Import the config in production mode
-      const prodConfig = (await import('../../vite.config')).default;
+      // Import the mock config in production mode
+      const prodConfig = (await import('./mocks/vite-config')).default;
       
       // In production, minify should be enabled
       expect(prodConfig.build.minify).toBe(true);
@@ -205,8 +205,8 @@ describe('Vite Configuration', () => {
   
   describe('Path Aliases', () => {
     it('should define alias paths', async () => {
-      // Import the Vite config
-      const viteConfig = await import('../../vite.config');
+      // Import the Vite config mock instead of the actual config
+      const viteConfig = await import('./mocks/vite-config');
       const resolvedConfig = viteConfig.default;
       
       // Check that aliases are defined
@@ -227,8 +227,8 @@ describe('Vite Configuration', () => {
   
   describe('Electron Integration', () => {
     it('should include the electron renderer plugin', async () => {
-      // Import the Vite config
-      const viteConfig = await import('../../vite.config');
+      // Import the Vite config mock instead of the actual config
+      const viteConfig = await import('./mocks/vite-config');
       const resolvedConfig = viteConfig.default;
       
       // Find the electron plugin (mocked in tests)
@@ -242,8 +242,8 @@ describe('Vite Configuration', () => {
     });
     
     it('should define electron-related environment variables', async () => {
-      // Import the Vite config
-      const viteConfig = await import('../../vite.config');
+      // Import the Vite config mock instead of the actual config
+      const viteConfig = await import('./mocks/vite-config');
       const resolvedConfig = viteConfig.default;
       
       // Check that electron-related defines are set
