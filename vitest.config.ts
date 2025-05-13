@@ -18,6 +18,9 @@ const config = defineConfig({
       '@': resolve(__dirname, 'src/renderer'),
       '@renderer': resolve(__dirname, 'src/renderer'),
       '@main': resolve(__dirname, 'src/main'),
+      '@shared': resolve(__dirname, 'src/shared'),
+      '@llm': resolve(__dirname, 'src/renderer/llm'),
+      '@database': resolve(__dirname, 'src/main/database'),
     },
   },
   define: {
