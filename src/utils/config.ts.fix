@@ -1,0 +1,139 @@
+// src/utils/config.ts
+import * as dotenv from 'dotenv';
+import * as nodePath from 'path';
+
+// We need to handle different environments properly
+const isMain = typeof process !== 'undefined' && 
+               typeof (process as any).type === 'undefined' || 
+               (process as any).type === 'browser';
+
+// In Electron main process
+const isRenderer = typeof process !== 'undefined' && (process as any).type === 'renderer';
+
+// Setup path and app correctly based on environment
+let path: typeof nodePath;
+let app: any = null;
+
+// Only in main process, we can access electron modules directly
+if (isMain) {
+  try {
+    // In the main process, import electron directly
+    const electron = await import('electron');
+    app = electron.app;
+    path = nodePath;
+  } catch (e) {
+    console.error('Failed to load electron in main process:', e);
+    // Fallback
+    path = nodePath;
+    app = { getPath: () => '' };
+  }
+} else {
+  // In renderer process, using the exposed electron API or fallback
+  path = nodePath;
+  app = { getPath: () => '' };
+  
+  // For renderers, we'll try to use the exposed electron API if available
+  if (typeof window !== 'undefined' && (window as any).electron) {
+    app = {
+      getPath: (name: string) => (window as any).electron.getPath(name)
+    };
+  }
+}
+
+// Load environment variables based on NODE_ENV
+const environment = process.env.NODE_ENV || 'development';
+
+// Use path.resolve correctly for dotenv config
+const envPath = nodePath.resolve(process.cwd(), `.env.${environment}`);
+dotenv.config({ path: envPath });
+
+export const config = {
+  apiUrl: process.env.API_URL || 'http://localhost:5173',
+  modelStoragePath: process.env.MODEL_STORAGE_PATH || 
+    (app?.getPath ? path.join(app.getPath('userData'), 'models') : 'models'),
+  debugMode: process.env.DEBUG_MODE === 'true'
+};
+
+// For renderer process
+// Define the schema type for better TypeScript support
+interface ConfigStore {
+  apiUrl?: string;
+  theme?: 'light' | 'dark';
+  loggingLevels?: {
+    assets?: 'verbose' | 'normal' | 'quiet';
+    models?: 'verbose' | 'normal' | 'quiet';
+  };
+}
+
+// Simple in-memory store as a fallback
+const memoryStore: Record<string, any> = {
+  // Default logging configuration
+  loggingLevels: {
+    assets: 'normal',  // Default to normal logging
+    models: 'normal'
+  }
+};
+
+// Create a simple store implementation that doesn't rely on electron-store
+const store = {
+  get: (key: string) => {
+    // Try to get from localStorage in renderer process
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const value = window.localStorage.getItem(`config_${key}`);
+        return value ? JSON.parse(value) : null;
+      } catch (e) {
+        console.error('Error reading from localStorage:', e);
+      }
+    }
+    
+    // Fallback to memory store
+    return memoryStore[key] || null;
+  },
+  
+  set: (key: string, value: any) => {
+    // Store in localStorage in renderer process
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(`config_${key}`, JSON.stringify(value));
+      } catch (e) {
+        console.error('Error writing to localStorage:', e);
+      }
+    }
+    
+    // Always store in memory
+    memoryStore[key] = value;
+  }
+};
+
+export const rendererConfig = {
+  getApiUrl: (): string | undefined => {
+    return store.get('apiUrl');
+  },
+
+  getTheme: (): 'light' | 'dark' => {
+    const theme = store.get('theme');
+    return theme === 'light' || theme === 'dark' ? theme : 'light';
+  },
+
+  setTheme: (theme: 'light' | 'dark'): void => {
+    store.set('theme', theme);
+  },
+
+  // Asset and model logging configuration
+  getLoggingLevel: (category: 'assets' | 'models'): 'verbose' | 'normal' | 'quiet' => {
+    const loggingLevels = store.get('loggingLevels') || {};
+    const level = loggingLevels[category];
+
+    // Return valid logging levels only, default to 'normal'
+    return (level === 'verbose' || level === 'normal' || level === 'quiet')
+      ? level
+      : 'normal';
+  },
+
+  setLoggingLevel: (category: 'assets' | 'models', level: 'verbose' | 'normal' | 'quiet'): void => {
+    const loggingLevels = store.get('loggingLevels') || {};
+    loggingLevels[category] = level;
+    store.set('loggingLevels', loggingLevels);
+  }
+};

@@ -1,0 +1,64 @@
+#!/usr/bin/env node
+
+/**
+ * wait-and-launch.js
+ * 
+ * This script waits for the development server to be ready 
+ * before launching Electron.
+ */
+
+import waitOn from 'wait-on';
+import { spawn } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get dirname in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// URLs to wait for - with fallback options
+const devUrls = [
+  'http://localhost:5173',
+  'http://localhost:5174'
+];
+
+// Electron entry point
+const electronEntryPoint = path.join(__dirname, 'src', 'main', 'main.dev.cjs');
+
+console.log('🔍 Waiting for development server to be ready...');
+console.log(`   Checking URLs: ${devUrls.join(', ')}`);
+
+// Options for wait-on
+const options = {
+  resources: devUrls.map(url => `${url}/`), // Add trailing slash to ensure full URL
+  interval: 1000, // Check every second
+  timeout: 60000, // Timeout after 1 minute
+  simultaneous: 1, // Only need one URL to be available
+  validateStatus: status => status !== 404, // Any status but 404 is OK
+  log: true
+};
+
+// Wait for either dev server to be ready
+waitOn(options)
+  .then((available) => {
+    console.log(`✅ Development server ready at ${available}`);
+    console.log(`🚀 Launching Electron...`);
+
+    // Launch Electron with the development entry point
+    const electronProcess = spawn('npx', ['electron', electronEntryPoint], {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NODE_ENV: 'development',
+        VITE_DEV_SERVER_URL: available // Pass the working URL to Electron
+      }
+    });
+
+    electronProcess.on('close', (code) => {
+      console.log(`Electron process exited with code ${code}`);
+    });
+  })
+  .catch((error) => {
+    console.error('❌ Error waiting for development server:', error);
+    process.exit(1);
+  });

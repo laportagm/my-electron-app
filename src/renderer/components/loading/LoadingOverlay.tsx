@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Brain } from 'lucide-react';
-import { useAppStore, AppState } from '@/store/useAppStore';
+import type { AppState } from '@/store/useAppStore';
+import { useAppStore } from '@/store/useAppStore';
 import { getModelById } from '@/utils/modelRegistry';
 
 /**

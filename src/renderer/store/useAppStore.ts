@@ -2,8 +2,9 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { shallow } from 'zustand/shallow'
 import * as THREE from 'three'
-import { ApplicationError } from '@/utils/errorHandler'
-import { Annotation, Vector3, AnnotationSlice } from '@/components/annotations/types'
+import type { ApplicationError } from '@/utils/errorHandler'
+import type { AnnotationSlice } from '@/components/annotations/types';
+import { Annotation, Vector3 } from '@/components/annotations/types'
 
 // Helper to prevent unnecessary re-renders
 const shallowEqual = (objA: any, objB: any) => {

@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "CommonJS",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": "/Users/gagelaporta/my-electron-app1-2/src/main",
+    "strict": false,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "sourceMap": true
+  },
+  "include": [
+    "/Users/gagelaporta/my-electron-app1-2/src/main/preload.ts",
+    "/Users/gagelaporta/my-electron-app1-2/src/main/preload/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts"
+  ]
+}

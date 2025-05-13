@@ -28,6 +28,23 @@
         "memory-bank-mcp-server"
       ],
       "env": {}
+    },
+    "code-analysis": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/gagelaporta/my-electron-app1-2/tools/code-analysis-mcp",
+        "run",
+        "code_analysis.py"
+      ],
+      "env": {}
+    },
+    "unit-test-generator": {
+      "type": "stdio",
+      "command": "./node_modules/.bin/unit-test-generator-mcp",
+      "args": [],
+      "env": {}
     }
   }
 }

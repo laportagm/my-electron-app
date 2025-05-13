@@ -184,14 +184,24 @@ describe('standardAssetLoader', () => {
     });
     
     // Mock fetch responses for data loading
-    (global.fetch as any).mockImplementation(() => {
+    (global.fetch as any).mockImplementation((url: string) => {
+      // Specifically handle the missing-data case to trigger the error branch
+      if (url.includes('missing-data')) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found'
+        });
+      }
+
+      // Default success response for other URLs
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ testData: 'success' })
       });
     });
   });
-  
+
   afterEach(() => {
     // Clean up after each test
   });
@@ -347,14 +357,7 @@ describe('standardAssetLoader', () => {
       // Mock path resolution
       (assetPathResolver.resolvePath as any).mockResolvedValue('/assets/data/missing-data.json');
 
-      // Mock fetch to fail
-      (global.fetch as any).mockImplementation(() => {
-        return Promise.resolve({
-          ok: false,
-          status: 404,
-          statusText: 'Not Found'
-        });
-      });
+      // We don't need to mock fetch here as we've already handled 'missing-data' in the beforeEach setup
 
       // Loading should throw an error
       await expect(loadData('missing-data')).rejects.toThrow(/HTTP error 404/);

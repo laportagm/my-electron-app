@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { useAppStore } from '@/store/useAppStore';
-import { Annotation } from './types';
+import type { Annotation } from './types';
 
 interface AnnotationMarkerProps {
   annotation: Annotation;

@@ -8,7 +8,7 @@ import ElectronStore from 'electron-store';
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import { 
+import type { 
   BrainStructure, 
   CreateBrainStructureInput,
   UpdateBrainStructureInput,

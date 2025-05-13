@@ -4,7 +4,8 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { Canvas } from '@react-three/fiber';
 import AnnotationLayer from '../AnnotationLayer';
 import * as THREE from 'three';
-import { createMockCanvas, patchDocumentCreateElement, MockPointerEvent } from '../../../../test/utils/createMockCanvas';
+import type { MockPointerEvent } from '../../../../test/utils/createMockCanvas';
+import { createMockCanvas, patchDocumentCreateElement } from '../../../../test/utils/createMockCanvas';
 
 // Mock the Zustand store
 vi.mock('@/store/useAppStore', () => {

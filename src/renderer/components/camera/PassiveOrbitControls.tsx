@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { extend, useThree } from '@react-three/fiber';
 import { OrbitControls as DreiOrbitControls } from '@react-three/drei';
-import * as THREE from 'three';
+import type * as THREE from 'three';
 import { OrbitControls as ThreeOrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 // Extend Three.js with OrbitControls

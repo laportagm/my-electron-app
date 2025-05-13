@@ -36,13 +36,16 @@ async function createWindow(): Promise<void> {
 
     // Filter out Autofill.enable errors in DevTools
     mainWindow.webContents.on('devtools-opened', () => {
-      session.defaultSession.webRequest.onBeforeRequest({ urls: ['*://devtools.devtools/*'] }, (details, callback) => {
-        if (details.url.includes('autofill.enable')) {
-          callback({ cancel: true });
-        } else {
-          callback({ cancel: false });
+      session.defaultSession.webRequest.onBeforeRequest(
+        { urls: ['*://devtools.devtools/*'] },
+        (details: { url: string }, callback: (response: { cancel: boolean }) => void) => {
+          if (details.url.includes('autofill.enable')) {
+            callback({ cancel: true });
+          } else {
+            callback({ cancel: false });
+          }
         }
-      });
+      );
     });
 
     // In development, always try to connect to the dev server
@@ -74,21 +77,21 @@ app.whenReady().then(async () => {
     await createWindow();
     
     // Set up IPC handlers for logging from renderer
-    ipcMain.on('log', (_event, message) => {
+    ipcMain.on('log', (_event: Electron.IpcMainEvent, message: string) => {
       logger.info(`Renderer: ${message}`);
     });
-    
-    ipcMain.on('error', (_event, message, errorMessage, errorStack) => {
-      logger.error(`Renderer Error: ${message}`, 
+
+    ipcMain.on('error', (_event: Electron.IpcMainEvent, message: string, errorMessage: string, errorStack: string) => {
+      logger.error(`Renderer Error: ${message}`,
         errorMessage ? new Error(`${errorMessage}\n${errorStack}`) : undefined);
     });
     
     // Set up IPC handlers for file system operations
-    ipcMain.handle('app:get-path', (_event, name) => {
+    ipcMain.handle('app:get-path', (_event: Electron.IpcMainInvokeEvent, name: string) => {
       return app.getPath(name as any);
     });
-    
-    ipcMain.handle('fs:read-dir', async (_event, dirPath) => {
+
+    ipcMain.handle('fs:read-dir', async (_event: Electron.IpcMainInvokeEvent, dirPath: string) => {
       try {
         return await fs.promises.readdir(dirPath);
       } catch (error) {
@@ -96,8 +99,8 @@ app.whenReady().then(async () => {
         throw error;
       }
     });
-    
-    ipcMain.handle('fs:read-file', async (_event, filePath) => {
+
+    ipcMain.handle('fs:read-file', async (_event: Electron.IpcMainInvokeEvent, filePath: string) => {
       try {
         return await fs.promises.readFile(filePath, 'utf-8');
       } catch (error) {
@@ -105,8 +108,8 @@ app.whenReady().then(async () => {
         throw error;
       }
     });
-    
-    ipcMain.handle('fs:write-file', async (_event, filePath, data) => {
+
+    ipcMain.handle('fs:write-file', async (_event: Electron.IpcMainInvokeEvent, filePath: string, data: string) => {
       try {
         await fs.promises.writeFile(filePath, data, 'utf-8');
         return true;

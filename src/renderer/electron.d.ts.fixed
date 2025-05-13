@@ -1,0 +1,40 @@
+// src/renderer/electron.d.ts
+// This defines the Electron API that's accessible in the renderer process
+
+interface ElectronAPI {
+  // File system operations
+  readFile: (filePath: string) => Promise<string>;
+  writeFile: (filePath: string, data: string) => Promise<boolean>;
+  readDir: (dirPath: string) => Promise<string[]>;
+  
+  // App paths
+  getPath: (name: string) => Promise<string>;
+  
+  // Logging
+  log: (message: string) => void;
+  error: (message: string, error?: Error) => void;
+  
+  // Path utilities - safe wrappers around Node's path module
+  path: {
+    join: (...args: string[]) => string;
+    resolve: (...args: string[]) => string;
+    dirname: (p: string) => string;
+    basename: (p: string) => string;
+    extname: (p: string) => string;
+  };
+  
+  // Send events to main process
+  send: (channel: string, ...args: any[]) => void;
+  
+  // Receive events from main process
+  on: (channel: string, callback: (...args: any[]) => void) => void;
+}
+
+// Add the Electron API to the window object
+declare global {
+  interface Window {
+    electron: ElectronAPI;
+  }
+}
+
+export {};

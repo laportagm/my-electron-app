@@ -38,7 +38,16 @@
     "types": ["node", "electron", "vite/client", "vitest/globals", "@testing-library/jest-dom", "better-sqlite3"]
   },
   "include": ["src/main/**/*", "src/utils/**/*", "src/lib/**/*"],
-  "exclude": ["node_modules", "dist", "release", "src/renderer/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "release",
+    "src/renderer/**/*",
+    "src/main/preload/preload-esm.ts",
+    "src/main/preload/preload-fixed.ts",
+    "src/main/preload/preload-improved.ts",
+    "src/main/preload/preload.ts"
+  ],
   "ts-node": {
     "compilerOptions": {
       "module": "CommonJS"

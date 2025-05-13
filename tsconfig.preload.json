@@ -6,6 +6,8 @@
     "strict": true,
     "esModuleInterop": true,
     "outDir": "dist/main",
+    "declaration": true,
+    "declarationDir": "dist/main",
     "baseUrl": ".",
     "paths": {
       "*": ["node_modules/*"]

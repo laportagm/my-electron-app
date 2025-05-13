@@ -17,7 +17,7 @@ fi
 
 # 4. Run electron with the development entry point
 echo "🔌 Starting Electron..."
-NODE_ENV=development npx electron electron-dev.cjs
+NODE_ENV=development npx electron src/main/main.dev.cjs
 
 # 5. Clean up temp files
 if [ -f "temp-main-dev.cjs" ]; then

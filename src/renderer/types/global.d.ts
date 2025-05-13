@@ -68,8 +68,8 @@ interface Process {
 }
 
 // Make process available globally
-declare var process: Process;
+declare let process: Process;
 
 // Make __dirname and __filename available in ESM
-declare var __dirname: string;
-declare var __filename: string;
+declare let __dirname: string;
+declare let __filename: string;

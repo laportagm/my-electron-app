@@ -347,11 +347,11 @@ class AssetPathResolver {
     ];
     
     // Electron-specific paths using electron.path.join if available
-    const electronPaths = isElectron ? [
+    const electronPaths = isElectron && window.electron?.path ? [
       // Paths via Electron API if available
-      window.electron?.path?.join(process.cwd(), variantPath, filename) || '',
-      window.electron?.path?.join(process.resourcesPath || '', variantPath, filename) || '',
-      window.electron?.path?.join('public', variantPath, filename) || '',
+      window.electron.path.join(process.cwd(), variantPath, filename),
+      window.electron.path.join(process.resourcesPath || '', variantPath, filename),
+      window.electron.path.join('public', variantPath, filename),
     ].filter(Boolean) : [];
     
     // Development-specific paths
@@ -503,9 +503,9 @@ class AssetPathResolver {
     const filename = `${id}${extension}`;
     
     // Use the most reliable path format
-    const url = ENV.isElectron
-      ? pathUtils.join(variantPath, filename) // Use pathUtils for cross-platform support
-      : `${variantPath}/${filename}`;
+    const url = ENV.isElectron && window.electron?.path
+      ? window.electron.path.join(variantPath, filename) // Use electron.path directly for better reliability
+      : pathUtils.join(variantPath, filename); // Fallback to pathUtils if electron.path is unavailable
       
     // Add cache buster if requested
     if (options.cacheBuster) {

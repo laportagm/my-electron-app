@@ -130,7 +130,7 @@ class DracoDecoderManager {
         : DECODER_FILES.JS_DECODER;
       
       // Try to find the decoder path
-      let decoderPath = await assetPathResolver.resolvePath(
+      const decoderPath = await assetPathResolver.resolvePath(
         AssetType.DRACO,
         mainFile,
         { 

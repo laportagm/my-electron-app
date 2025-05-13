@@ -76,12 +76,123 @@ vi.mock('@react-three/drei', () => {
   }
 })
 
-// Mock window.electron if needed for renderer process
+// Create a comprehensive path module mock
+const pathMock = {
+  join: vi.fn((...parts) => parts.join('/')),
+  resolve: vi.fn((...parts) => '/' + parts.join('/')),
+  dirname: vi.fn(p => p.substring(0, p.lastIndexOf('/'))),
+  basename: vi.fn((p, ext) => {
+    let base = p.substring(p.lastIndexOf('/') + 1);
+    if (ext && base.endsWith(ext)) {
+      base = base.substring(0, base.length - ext.length);
+    }
+    return base;
+  }),
+  extname: vi.fn(p => {
+    const index = p.lastIndexOf('.');
+    return index < 0 ? '' : p.substring(index);
+  }),
+  sep: '/',
+  delimiter: ':'
+};
+
+// Mock the path module
+vi.mock('path', () => {
+  return {
+    ...pathMock,
+    default: pathMock
+  };
+});
+
+// Create mock for Electron app module with a helper for executing the app ready callback
+const electronMock = {
+  app: {
+    whenReady: vi.fn().mockReturnValue({
+      then: vi.fn(cb => {
+        // Store the callback but don't execute it automatically
+        electronMock._stored.appReadyCallback = cb;
+        return { catch: vi.fn() };
+      })
+    }),
+    on: vi.fn(),
+    getPath: vi.fn(name => `/mock/${name}`),
+    getAppPath: vi.fn().mockReturnValue('/mock/app/path'),
+    quit: vi.fn()
+  },
+  BrowserWindow: vi.fn().mockImplementation(() => ({
+    loadURL: vi.fn().mockResolvedValue(undefined),
+    loadFile: vi.fn(),
+    on: vi.fn(),
+    webContents: {
+      openDevTools: vi.fn(),
+      on: vi.fn(),
+      session: {
+        webRequest: {
+          onHeadersReceived: vi.fn()
+        }
+      }
+    },
+    getBounds: vi.fn().mockReturnValue({ x: 0, y: 0, width: 800, height: 600 }),
+    close: vi.fn(),
+    destroy: vi.fn()
+  })),
+  ipcMain: {
+    on: vi.fn(),
+    handle: vi.fn()
+  },
+  session: {
+    defaultSession: {
+      webRequest: {
+        onBeforeRequest: vi.fn()
+      }
+    }
+  },
+  dialog: {
+    showErrorBox: vi.fn()
+  },
+  // Helpers for test
+  _stored: {
+    appReadyCallback: null as Function | null,
+    executeAppReadyCallback: async function() {
+      if (this.appReadyCallback) {
+        await this.appReadyCallback();
+        return true;
+      }
+      return false;
+    }
+  }
+};
+
+// Add getAllWindows to BrowserWindow
+electronMock.BrowserWindow.getAllWindows = vi.fn().mockReturnValue([]);
+
+// Mock the electron module
+vi.mock('electron', () => electronMock);
+
+// Export the electronMock for use in tests
+(global as any).electronMock = electronMock;
+
+// Enhanced window.electron mock with path utilities
 Object.defineProperty(window, 'electron', {
   value: {
     sendError: vi.fn(),
     log: vi.fn(),
+    // Add path functions using the same implementations as pathMock
+    path: {
+      join: vi.fn((...parts) => pathMock.join(...parts)),
+      resolve: vi.fn((...parts) => pathMock.resolve(...parts)),
+      dirname: vi.fn(p => pathMock.dirname(p)),
+      basename: vi.fn((p, ext) => pathMock.basename(p, ext)),
+      extname: vi.fn(p => pathMock.extname(p)),
+      sep: '/',
+      delimiter: ':'
+    },
+    // Add other API properties needed by tests
+    getPath: vi.fn(name => `/mock/${name}`),
+    isPackaged: false
   },
+  writable: true,
+  configurable: true
 })
 
 // Mock config module
@@ -102,3 +213,17 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn(),
   })),
 })
+
+// Fix TextEncoder and TextDecoder issue with instanceof
+// This is necessary because esbuild requires TextEncoder to return true for instanceof Uint8Array
+class FixedTextEncoder extends TextEncoder {
+  encode(input?: string): Uint8Array {
+    const result = super.encode(input);
+    // Ensure result properly passes instanceof checks
+    Object.setPrototypeOf(result, Uint8Array.prototype);
+    return result;
+  }
+}
+
+// Replace global TextEncoder with fixed version
+global.TextEncoder = FixedTextEncoder;

@@ -1,5 +1,8 @@
-// Setup file for Vitest testing environment
+// Setup file for Vitest testing environment with TextEncoder fix
 // This is imported via vitest.config.ts and not included in the production build
+
+// Import the TextEncoder fix first to ensure it's applied
+import './esbuild-encoder-fix';
 
 import '@testing-library/jest-dom'
 import { expect, afterEach, vi } from 'vitest'
@@ -7,6 +10,7 @@ import { cleanup } from '@testing-library/react'
 import * as matchers from '@testing-library/jest-dom/matchers'
 import React from 'react'
 import mockThree from './mocks/three-updated'
+import mockR3F from './mocks/r3f'
 
 // Extend Vitest's expect method with methods from react-testing-library
 expect.extend(matchers)

@@ -3,7 +3,7 @@ import { render, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Canvas } from '@react-three/fiber';
 import AnnotationLayer from '../AnnotationLayer';
-import * as THREE from 'three';
+import type * as THREE from 'three';
 
 // Mock THREE.js and React Three Fiber
 vi.mock('@react-three/fiber', async (importOriginal) => {
