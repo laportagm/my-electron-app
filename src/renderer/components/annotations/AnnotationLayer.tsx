@@ -5,10 +5,6 @@ import { useAppStore, shallow } from '@/store/useAppStore';
 import AnnotationMarker from './AnnotationMarker';
 import { toVector3Object } from './types';
 
-// We don't need to extend Three.js components anymore
-// because we're using lowercase component names which
-// are automatically provided by R3F
-
 interface AnnotationLayerProps {
   modelId: string;
 }
@@ -25,79 +21,85 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ modelId }) => {
   const mouse = useRef<THREE.Vector2>(new THREE.Vector2());
   const { camera, scene, gl } = useThree();
 
-  // ENHANCED REWRITE OF ANNOTATION STATE MANAGEMENT
-  // Using a multi-step approach with primitive selectors to eliminate React 18 useSyncExternalStore issues
-
-  // Step 1: Create a stable, cacheable selector function
-  const annotationIdsSelector = useCallback((state) => {
-    // Only return primitives (IDs) from the selector to avoid reference equality issues
-    return Object.keys(state.annotations).filter(id =>
-      state.annotations[id]?.modelId === modelId
-    );
+  // FIXED ANNOTATION STATE MANAGEMENT - PREVENT CYCLICAL UPDATES
+  // Using static selectors to completely eliminate selector recreation
+  const getAnnotationsForModel = useCallback((state) => {
+    return Object.keys(state.annotations)
+      .filter(id => state.annotations[id]?.modelId === modelId)
+      .map(id => state.annotations[id]);
   }, [modelId]);
-
-  // Step 2: Use the selector with shallow comparison to get stable primitive values
-  // This properly caches the getSnapshot result for useSyncExternalStore
-  const annotationIds = useAppStore(annotationIdsSelector, shallow);
-
-  // Step 3: Keep a stable reference to the annotationIds array for memoization
-  const stableAnnotationIds = useRef(annotationIds);
-
-  // Step 4: Update the reference only when the actual content changes (not just the reference)
+  
+  const getIsCreating = (state) => state.isCreating;
+  
+  // We'll keep function references in refs to prevent recreation
+  const actionRefs = useRef({
+    selectAnnotation: null,
+    addAnnotation: null,
+    toggleCreationMode: null
+  });
+  
+  // Store the state values and update them only when they change
+  const [stateValues, setStateValues] = useState({
+    annotations: [],
+    isCreating: false
+  });
+  
+  // Use effect to update state only when needed, breaking render cycles
   useEffect(() => {
-    // Only update the ref if the IDs have actually changed
-    if (!shallowEqual(stableAnnotationIds.current, annotationIds)) {
-      stableAnnotationIds.current = annotationIds;
-    }
-  }, [annotationIds]);
-
-  // Step 5: Create the derived annotations with a proper React dependency
-  // Using a direct selector instead of getState() to avoid React 18 sync issues
-  const annotationsSelector = useCallback((state) => {
-    // Only process if we have valid IDs
-    if (!stableAnnotationIds.current?.length) return [];
-    // Map IDs to actual objects directly from the state
-    return stableAnnotationIds.current.map(id => state.annotations[id]);
-  }, []); // No dependencies as it uses ref internally
-
-  // Use the selector with shallow comparison
-  const annotations = useAppStore(annotationsSelector, shallow);
-
-  // Helper function for shallow equality check
-  function shallowEqual(arrA: any[], arrB: any[]): boolean {
-    if (arrA === arrB) return true;
-    if (arrA.length !== arrB.length) return false;
-
-    for (let i = 0; i < arrA.length; i++) {
-      if (arrA[i] !== arrB[i]) return false;
-    }
-
-    return true;
-  }
-
-  // Get other state and actions from store with proper memoization
-  // Use primitive selectors for state to avoid reference equality issues
-  const isCreatingSelector = useCallback((state) => state.isCreating, []);
-  const isCreating = useAppStore(isCreatingSelector);
-
-  // For actions, we can use direct selection since they're stable functions
-  const selectAnnotationSelector = useCallback((state) => state.selectAnnotation, []);
-  const selectAnnotation = useAppStore(selectAnnotationSelector);
-
-  const addAnnotationSelector = useCallback((state) => state.addAnnotation, []);
-  const addAnnotation = useAppStore(addAnnotationSelector);
+    const unsubscribe = useAppStore.subscribe(
+      (state) => [getAnnotationsForModel(state), state.isCreating],
+      ([newAnnotations, newIsCreating]) => {
+        if (!shallow(newAnnotations, stateValues.annotations) || 
+            newIsCreating !== stateValues.isCreating) {
+          setStateValues({
+            annotations: newAnnotations,
+            isCreating: newIsCreating
+          });
+        }
+      }
+    );
+    
+    // One-time action function references
+    actionRefs.current = {
+      selectAnnotation: useAppStore.getState().selectAnnotation,
+      addAnnotation: useAppStore.getState().addAnnotation,
+      toggleCreationMode: useAppStore.getState().toggleCreationMode
+    };
+    
+    // Initial load
+    setStateValues({
+      annotations: getAnnotationsForModel(useAppStore.getState()),
+      isCreating: useAppStore.getState().isCreating
+    });
+    
+    return unsubscribe;
+  }, [getAnnotationsForModel]);
+  
+  // Use local variables from the useState, not direct store access
+  const { annotations, isCreating } = stateValues;
+  
+  // Create stable references to the functions that won't change
+  const selectAnnotation = useCallback((id) => {
+    actionRefs.current.selectAnnotation(id);
+  }, []);
+  
+  const addAnnotation = useCallback((annotation) => {
+    actionRefs.current.addAnnotation(annotation);
+  }, []);
+  
+  const toggleCreationMode = useCallback(() => {
+    actionRefs.current.toggleCreationMode();
+  }, []);
 
   // Camera position for preview animation
   const cameraPosition = useRef(new THREE.Vector3());
 
   // Update camera position ref - use a stable reference with a debounced update
   useEffect(() => {
-    // Skip if camera is not available
     if (!camera) return;
 
-    // Create a stable update function that won't cause rerenders
     const updateCameraPosition = () => {
-      if (camera && cameraPosition.current) {
+      if (camera) {
         cameraPosition.current.copy(camera.position);
       }
     };
@@ -156,18 +158,17 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ modelId }) => {
     selectAnnotation(id);
   }, [selectAnnotation]);
 
+  // Use a ref to track the last hover point for creating annotations
+  const lastHoverPointRef = useRef<THREE.Vector3 | null>(null);
+
   // Handle model click for creating new annotations
   const handleModelClick = useCallback((e: React.MouseEvent<THREE.Mesh> & {
     stopPropagation: () => void;
   }) => {
-    // Use lastHoverPointRef to avoid dependency on hoverPoint state
-    // which can cause unnecessary re-renders
     if (!isCreating || !lastHoverPointRef.current) return;
 
-    // Stop event propagation
     e.stopPropagation();
 
-    // Create a temporary title based on coordinates
     const point = lastHoverPointRef.current;
     const title = `Annotation ${Math.floor(point.x * 100) / 100}, ${Math.floor(point.y * 100) / 100}, ${Math.floor(point.z * 100) / 100}`;
 
@@ -187,8 +188,6 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ modelId }) => {
 
   // Use a ref to track the last update time for debouncing
   const lastUpdateRef = useRef(0);
-  // Use a ref to track the last hover point for comparison without triggering re-renders
-  const lastHoverPointRef = useRef<THREE.Vector3 | null>(null);
 
   // Stable reference for scene objects
   const cachedSceneObjects = useRef<THREE.Object3D[]>([]);
@@ -197,16 +196,12 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ modelId }) => {
   useEffect(() => {
     if (!scene) return;
 
-    // This happens once on mount or when scene changes
-    // We're not filtering yet to avoid recreating arrays during render
     cachedSceneObjects.current = Array.from(scene.children);
 
-    // Update cached objects when scene children change
     const handleSceneChange = () => {
       cachedSceneObjects.current = Array.from(scene.children);
     };
 
-    // Listen for changes to the scene
     scene.addEventListener('childadded', handleSceneChange);
     scene.addEventListener('childremoved', handleSceneChange);
 
@@ -226,16 +221,8 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ modelId }) => {
 
   // Update the filtered objects when scene changes
   useEffect(() => {
-    // Only update when scene changes and has children
     if (!scene || !scene.children.length) return;
 
-    validObjectsRef.current = cachedSceneObjects.current.filter(obj =>
-      obj.name !== 'annotation-layer' &&
-      obj.visible &&
-      !obj.userData.isUI
-    );
-
-    // Set up a mutation observer to watch for changes to the scene
     const updateValidObjects = () => {
       validObjectsRef.current = cachedSceneObjects.current.filter(obj =>
         obj.name !== 'annotation-layer' &&
@@ -243,6 +230,9 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ modelId }) => {
         !obj.userData.isUI
       );
     };
+    
+    // Initial update
+    updateValidObjects();
 
     // Update on scene changes
     scene.addEventListener('childadded', updateValidObjects);
@@ -252,52 +242,41 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ modelId }) => {
       scene.removeEventListener('childadded', updateValidObjects);
       scene.removeEventListener('childremoved', updateValidObjects);
     };
-  }, [scene, cachedSceneObjects.current]);
+  }, [scene]);
 
   // Function to perform raycasting in a requestAnimationFrame
   const performRaycasting = useCallback(() => {
-    // Cancel any pending animation frame
     if (rafIdRef.current !== null) {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = null;
     }
 
-    // Skip if we're not in creation mode
     if (!isCreating) return;
 
-    // Schedule the raycasting in the next animation frame
     rafIdRef.current = requestAnimationFrame(() => {
-      // Update raycaster
       raycaster.current.setFromCamera(mouse.current, camera);
-
-      // Find intersections with the pre-filtered objects
       const intersects = raycaster.current.intersectObjects(validObjectsRef.current, true);
 
       if (intersects.length > 0) {
         const intersection = intersects[0];
         const point = intersection.point;
 
-        // Determine threshold based on mouse velocity
-        // Use smaller threshold for slow movements, larger for fast movements
         const distanceThreshold = 0.0001 * (1 + mouseVelocityRef.current * 10);
         const significantChange = !lastHoverPointRef.current ||
-                                 point.distanceToSquared(lastHoverPointRef.current) > distanceThreshold;
+                                point.distanceToSquared(lastHoverPointRef.current) > distanceThreshold;
 
         if (significantChange) {
-          // Clone only when we actually need a new point
           const newPoint = point.clone();
           lastHoverPointRef.current = newPoint;
 
-          // Use the useState updater pattern for maximum safety
+          // Use setState callback to avoid closure issues
           setHoverPoint(() => newPoint);
         }
       } else if (hoverPoint !== null) {
-        // Only update state if there's a change
         lastHoverPointRef.current = null;
         setHoverPoint(null);
       }
 
-      // Reset reference to indicate completion
       rafIdRef.current = null;
     });
   }, [isCreating, camera, hoverPoint]);
@@ -316,7 +295,6 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ modelId }) => {
     clientX: number;
     clientY: number;
   }) => {
-    // Early exit if creation mode is disabled
     if (!isCreating) {
       if (hoverPoint !== null) {
         setHoverPoint(null);
@@ -324,39 +302,26 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ modelId }) => {
       return;
     }
 
-    // Calculate mouse position
     const mouseX = (e.clientX / gl.domElement.clientWidth) * 2 - 1;
     const mouseY = -(e.clientY / gl.domElement.clientHeight) * 2 + 1;
 
-    // Calculate velocity (how fast the mouse is moving)
     const dx = mouseX - prevMousePosRef.current.x;
     const dy = mouseY - prevMousePosRef.current.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     mouseVelocityRef.current = distance;
 
-    // Update previous position
     prevMousePosRef.current = { x: mouseX, y: mouseY };
 
-    // Dynamic throttling based on movement speed
-    // Use shorter intervals for slow, precise movements
-    // Use longer intervals for fast movements
     const throttleTime = mouseVelocityRef.current > 0.05 ? 100 : 30;
-
-    // Throttle updates based on dynamic time
     const now = Date.now();
     if (now - lastUpdateRef.current < throttleTime) {
       return;
     }
     lastUpdateRef.current = now;
 
-    // Use the existing Vector2 object without creating a new one
     mouse.current.set(mouseX, mouseY);
-
-    // Perform the actual raycasting in a requestAnimationFrame
-    // This moves the heavy computation off the event handler
     performRaycasting();
-
-  }, [isCreating, gl, performRaycasting, hoverPoint]); // Properly declared dependencies
+  }, [isCreating, gl, performRaycasting, hoverPoint]);
 
   // Set cursor based on creation mode
   useEffect(() => {
@@ -371,14 +336,9 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ modelId }) => {
     };
   }, [isCreating]);
 
-  // Get toggleCreationMode action from store with proper memoization
-  const toggleCreationModeSelector = useCallback((state) => state.toggleCreationMode, []);
-  const toggleCreationMode = useAppStore(toggleCreationModeSelector);
-
   // Create a stable handler for escape key to exit creation mode
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape' && isCreating) {
-      // Use the properly subscribed action instead of getState()
       toggleCreationMode();
     }
   }, [isCreating, toggleCreationMode]);
@@ -475,22 +435,7 @@ const AnnotationLayer: React.FC<AnnotationLayerProps> = ({ modelId }) => {
   );
 };
 
-// Enhanced memo pattern with more robust prop comparison
-// This uses an explicit equality function that's optimized for this specific component
-const arePropsEqual = (prevProps: AnnotationLayerProps, nextProps: AnnotationLayerProps) => {
-  // Only re-render if the modelId has changed
+// Memoize the component to prevent unnecessary renders
+export default React.memo(AnnotationLayer, (prevProps, nextProps) => {
   return prevProps.modelId === nextProps.modelId;
-};
-
-// Create the memo component with a displayName for better debugging
-const MemoizedAnnotationLayer = React.memo(AnnotationLayer, arePropsEqual);
-MemoizedAnnotationLayer.displayName = 'MemoizedAnnotationLayer';
-
-// Export constants and helpers for testing/debugging
-export const __INTERNAL__ = {
-  AnnotationLayer,
-  arePropsEqual
-};
-
-// Export the memoized component as the default
-export default MemoizedAnnotationLayer;
+});

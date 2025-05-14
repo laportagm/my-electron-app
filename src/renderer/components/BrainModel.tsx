@@ -1,10 +1,16 @@
-import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, memo, Suspense, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useAppStore, shallow } from '@/store/useAppStore';
+import { useAppStore } from '@/store/useAppStore';
 import { loadModel } from '@/utils/loadModel';
 import { getModelById } from '@/utils/modelRegistry';
 import * as THREE from 'three';
-import AnnotationLayer from './annotations/AnnotationLayer';
+
+// Lazy load the AnnotationLayer to break circular dependency
+const AnnotationLayer = React.lazy(() => 
+  import('./annotations/AnnotationLayer').then(module => ({ 
+    default: module.default 
+  }))
+);
 
 interface BrainModelProps {
   modelId?: string;
@@ -35,7 +41,7 @@ const ErrorCube = memo(() => (
 ));
 
 // Rotating animation component
-const RotatingGroup = memo(({ loading, children }: { loading: boolean, children: React.ReactNode }) => {
+const RotatingGroup = memo(({ loading, children }: { loading: boolean, children: React.ReactNode; }) => {
   const groupRef = useRef<THREE.Group>(null);
 
   // Simple rotation animation for fallback cube
@@ -154,25 +160,33 @@ function BrainModel({ modelId }: BrainModelProps) {
       // Add the new model as a child
       modelRef.current.add(model);
 
-      // Update the global reference only once, using requestAnimationFrame to break circular dependencies
-      const ref = modelRef.current;
-      requestAnimationFrame(() => {
-        // Check if component is still mounted before updating the store
-        if (isMounted.current && ref) {
-          setCurrentModelRef(ref);
-        }
-      });
+      // Use a flag to prevent multiple updates in the same cycle
+      const hasUpdated = useRef(false);
+      
+      if (!hasUpdated.current) {
+        hasUpdated.current = true;
+        
+        // Update the global reference - delay with setTimeout instead of requestAnimationFrame
+        // to more effectively break render cycles
+        const ref = modelRef.current;
+        setTimeout(() => {
+          // Check if component is still mounted before updating the store
+          if (isMounted.current && ref) {
+            setCurrentModelRef(ref);
+            hasUpdated.current = false;
+          }
+        }, 0);
+      }
     }
 
     // Cleanup function for model changes and unmounts
     return () => {
-      // Use requestAnimationFrame to avoid cleanup during render
-      requestAnimationFrame(() => {
-        // Only cleanup if component is unmounting or model is changing
-        if (!isMounted.current || model !== prevModelRef.current) {
+      // Only cleanup if component is unmounting
+      if (!isMounted.current) {
+        setTimeout(() => {
           setCurrentModelRef(null);
-        }
-      });
+        }, 0);
+      }
     };
   }, [model, setCurrentModelRef]);
 
@@ -187,8 +201,12 @@ function BrainModel({ modelId }: BrainModelProps) {
 
       {error && <ErrorCube />}
 
-      {/* Add annotation layer when model is loaded and id is available */}
-      {!loading && !error && id && <AnnotationLayer modelId={id} />}
+      {/* Add annotation layer when model is loaded and id is available - using React.lazy for better performance */}
+      {!loading && !error && id && model && (
+        <React.Suspense fallback={null}>
+          {React.useMemo(() => <AnnotationLayer modelId={id} />, [id])}
+        </React.Suspense>
+      )}
     </group>
   );
 }

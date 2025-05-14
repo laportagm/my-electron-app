@@ -198,30 +198,76 @@ export const useAppStore = create<AppState>()(
       setCurrentModelRef: (ref) => {
         // Only update if the reference actually changes to prevent loops
         const state = get();
-        if (ref !== state.currentModelRef) {
-          // Use requestAnimationFrame to break synchronous updates
-          // that could lead to circular dependency loops
-          requestAnimationFrame(() => {
-            set({ currentModelRef: ref });
-          });
+        
+        // Enhanced deep equality check for THREE.Object3D references
+        const refEqual = ref === state.currentModelRef || 
+                         (ref?.uuid && state.currentModelRef?.uuid && 
+                          ref.uuid === state.currentModelRef.uuid);
+        
+        if (!refEqual) {
+          // Use requestIdleCallback (or fallback to setTimeout) with a higher delay 
+          // to ensure we break synchronous cycles
+          const updateState = () => {
+            set((s) => {
+              // Double-check to ensure ref is still different during the actual update
+              const stillDifferent = ref !== s.currentModelRef && 
+                                    (!ref?.uuid || !s.currentModelRef?.uuid || 
+                                     ref.uuid !== s.currentModelRef.uuid);
+              return stillDifferent ? { currentModelRef: ref } : {};
+            });
+          };
+          
+          // Use requestIdleCallback if available, otherwise setTimeout with a higher delay
+          if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            (window as any).requestIdleCallback(updateState, { timeout: 50 });
+          } else {
+            setTimeout(updateState, 50);
+          }
         }
       },
       setOrbitControlsRef: (ref) => {
         const state = get();
         if (ref !== state.orbitControlsRef) {
-          // Use requestAnimationFrame to break synchronous updates
-          requestAnimationFrame(() => {
-            set({ orbitControlsRef: ref });
-          });
+          // Use requestIdleCallback or setTimeout with higher delay (30ms)
+          const updateState = () => {
+            set((s) => {
+              // Double-check to ensure ref is still different during the actual update
+              return s.orbitControlsRef !== ref ? { orbitControlsRef: ref } : {};
+            });
+          };
+          
+          if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            (window as any).requestIdleCallback(updateState, { timeout: 30 });
+          } else {
+            setTimeout(updateState, 30);
+          }
         }
       },
       setCameraRef: (ref) => {
         const state = get();
-        if (ref !== state.cameraRef) {
-          // Use requestAnimationFrame to break synchronous updates
-          requestAnimationFrame(() => {
-            set({ cameraRef: ref });
-          });
+        
+        // Enhanced deep equality check for THREE.Camera references
+        const refEqual = ref === state.cameraRef || 
+                         (ref?.uuid && state.cameraRef?.uuid && 
+                          ref.uuid === state.cameraRef.uuid);
+                          
+        if (!refEqual) {
+          // Use requestIdleCallback or setTimeout with higher delay (30ms)
+          const updateState = () => {
+            set((s) => {
+              // Double-check to ensure ref is still different during the actual update
+              const stillDifferent = ref !== s.cameraRef && 
+                                    (!ref?.uuid || !s.cameraRef?.uuid || 
+                                     ref.uuid !== s.cameraRef.uuid);
+              return stillDifferent ? { cameraRef: ref } : {};
+            });
+          };
+          
+          if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+            (window as any).requestIdleCallback(updateState, { timeout: 30 });
+          } else {
+            setTimeout(updateState, 30);
+          }
         }
       },
       

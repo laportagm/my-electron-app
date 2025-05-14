@@ -6,7 +6,7 @@ import BrainModel from './BrainModel'
 import MultipleModels from './MultipleModels'
 import FallbackCube from './FallbackCube'
 import PerformanceMonitor from './performance/PerformanceMonitor'
-import AnnotationLayer from './annotations/AnnotationLayer'
+// Remove direct import of AnnotationLayer - it's now managed by BrainModel
 import { ControlPanel } from './controls/ControlPanel'
 import { useAppStore, shallow } from '@/store/useAppStore'
 import * as THREE from 'three'
@@ -20,56 +20,123 @@ const CameraController = memo(function CameraController() {
   const { camera } = useThree();
   const controlsRef = useRef<any>(null);
 
-  // Use individual selectors to prevent unnecessary re-renders
-  const setOrbitControlsRef = useAppStore(state => state.setOrbitControlsRef);
-  const setCameraRef = useAppStore(state => state.setCameraRef);
+  // We'll store function references in a ref to prevent recreation
+  const actionsRef = useRef({
+    setOrbitControlsRef: null as any,
+    setCameraRef: null as any
+  });
+  
+  // Initialize the actions once
+  useEffect(() => {
+    actionsRef.current = {
+      setOrbitControlsRef: useAppStore.getState().setOrbitControlsRef,
+      setCameraRef: useAppStore.getState().setCameraRef
+    };
+  }, []);
 
   // Use refs to track previous values and prevent unnecessary updates
   const prevControlsRef = useRef<any>(null);
   const prevCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-
-  // This effect efficiently handles both refs and avoids update loops
+  
+  // Track whether we've already updated the refs
+  const hasSetInitialRefs = useRef<boolean>(false);
+  // Track whether component is mounted
+  const isMounted = useRef<boolean>(true);
+  
+  // Set isMounted to false when component unmounts
   useEffect(() => {
-    // Handle orbit controls ref
-    if (controlsRef.current && controlsRef.current !== prevControlsRef.current) {
-      prevControlsRef.current = controlsRef.current;
-      // Break the synchronous cycle with requestAnimationFrame
-      const currentControls = controlsRef.current;
-      requestAnimationFrame(() => {
-        setOrbitControlsRef(currentControls);
-      });
-    }
-
-    // Handle camera ref
-    if (camera instanceof THREE.PerspectiveCamera && camera !== prevCameraRef.current) {
-      prevCameraRef.current = camera;
-      // Break the synchronous cycle with requestAnimationFrame
-      const currentCamera = camera;
-      requestAnimationFrame(() => {
-        setCameraRef(currentCamera);
-      });
-    }
-
-    // Only clean up when component unmounts
     return () => {
-      // Use requestAnimationFrame to avoid cleanup during render
-      requestAnimationFrame(() => {
-        // Only clear if component is truly unmounting
-        if (!controlsRef.current && prevControlsRef.current) {
-          setOrbitControlsRef(null);
-          prevControlsRef.current = null;
-        }
-
-        // Camera might be present in React Three Fiber even after unmount,
-        // so we check if we're in an unmounting state differently
-        const unmountCheck = document.querySelector('canvas') === null;
-        if (unmountCheck && prevCameraRef.current) {
-          setCameraRef(null);
-          prevCameraRef.current = null;
-        }
-      });
+      isMounted.current = false;
     };
-  }, [setOrbitControlsRef, setCameraRef, camera]);
+  }, []);
+
+  // This effect efficiently handles camera refs
+  useEffect(() => {
+    // Skip if we've already set the initial refs or not a valid camera
+    if (hasSetInitialRefs.current || !(camera instanceof THREE.PerspectiveCamera)) return;
+    
+    if (camera !== prevCameraRef.current) {
+      prevCameraRef.current = camera;
+      
+      // Use requestIdleCallback to break render cycles
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => {
+          if (isMounted.current) {
+            actionsRef.current.setCameraRef(camera);
+          }
+        }, { timeout: 100 });
+      } else {
+        // Fallback to setTimeout with higher delay
+        setTimeout(() => {
+          if (isMounted.current) {
+            actionsRef.current.setCameraRef(camera);
+          }
+        }, 100);
+      }
+      
+      // Update initial refs flag if controls are also ready
+      if (controlsRef.current) {
+        hasSetInitialRefs.current = true;
+      }
+    }
+    
+    return () => {
+      // Only clear camera refs if actually unmounting
+      if (!isMounted.current) {
+        // Wait to ensure this only happens during unmount
+        setTimeout(() => {
+          const unmountCheck = document.querySelector('canvas') === null;
+          if (unmountCheck && prevCameraRef.current) {
+            actionsRef.current.setCameraRef(null);
+            prevCameraRef.current = null;
+          }
+        }, 100);
+      }
+    };
+  }, [camera]);
+  
+  // Separate effect for orbit controls to avoid dependencies between effects
+  useEffect(() => {
+    // Skip if we've already set the initial refs or no controls
+    if (hasSetInitialRefs.current || !controlsRef.current) return;
+    
+    if (controlsRef.current !== prevControlsRef.current) {
+      prevControlsRef.current = controlsRef.current;
+      
+      // Use requestIdleCallback to break render cycles
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(() => {
+          if (isMounted.current) {
+            actionsRef.current.setOrbitControlsRef(controlsRef.current);
+          }
+        }, { timeout: 100 });
+      } else {
+        // Fallback to setTimeout with higher delay
+        setTimeout(() => {
+          if (isMounted.current) {
+            actionsRef.current.setOrbitControlsRef(controlsRef.current);
+          }
+        }, 100);
+      }
+      
+      // Update initial refs flag if camera is also ready
+      if (camera instanceof THREE.PerspectiveCamera) {
+        hasSetInitialRefs.current = true;
+      }
+    }
+    
+    return () => {
+      // Only clear orbit controls if actually unmounting
+      if (!isMounted.current) {
+        setTimeout(() => {
+          if (!controlsRef.current && prevControlsRef.current) {
+            actionsRef.current.setOrbitControlsRef(null);
+            prevControlsRef.current = null;
+          }
+        }, 100);
+      }
+    };
+  }, []);
 
   return <PassiveOrbitControls ref={controlsRef} enablePan enableZoom enableRotate />;
 });
@@ -279,11 +346,7 @@ function NeuroScene({ className = '' }: NeuroSceneProps) {
         {showMultiple ? (
           <MultipleModels />
         ) : selectedId ? (
-          <>
-            <BrainModel modelId={selectedId} />
-            {/* Add the AnnotationLayer component for the currently selected model */}
-            <AnnotationLayer modelId={selectedId} />
-          </>
+          <BrainModel modelId={selectedId} />
         ) : (
           <FallbackCube />
         )}
